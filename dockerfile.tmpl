@@ -22,7 +22,7 @@ ARG TARGET_DOTNET_VERSION
 {{range .Project.GetAllProjectReferences}}
 COPY ["{{.GetRelativePath}}", "{{.GetDirectoryRelativePath}}"]{{end}}
 {{range .AdditionalFilePaths}}
-COPY ["{{.}}", "{{.}}"]{{end}}
+COPY ["{{.GetRelativePath}}", "{{.GetRelativePath}}"]{{end}}
 RUN dotnet restore "./{{.Project.GetRelativePath}}"
 COPY . .
 WORKDIR "/build/{{.Project.GetDirectoryRelativePath}}"
@@ -41,7 +41,6 @@ RUN dotnet publish "./{{.Project.GetFileName}}" \
     -p:Version=$APP_VERSION \
     -f net${TARGET_DOTNET_VERSION} \
     /p:UseAppHost=false
-
 
 FROM base AS final
 WORKDIR /app

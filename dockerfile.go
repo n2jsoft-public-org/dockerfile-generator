@@ -10,11 +10,11 @@ import (
 var dockerfileTemplate string
 
 type DockerfileTemplateContext struct {
-	AdditionalFilePaths []string
+	AdditionalFilePaths []AdditionalFilePath
 	Project             Project
 }
 
-func generateDockerfile(project Project, additionalFilePaths []string, destinationPath string) error {
+func generateDockerfile(project Project, additionalFilePaths []AdditionalFilePath, destinationPath string) error {
 	tmpl, err := template.New("dockerfile").Parse(dockerfileTemplate)
 	if err != nil {
 		return err
