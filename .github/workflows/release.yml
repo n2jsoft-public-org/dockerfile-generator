@@ -30,7 +30,7 @@ jobs:
           cache: true
 
       - name: Build (sanity)
-        run: go build ./...
+        run: go build -o /tmp/sanity ./...
 
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@v5
