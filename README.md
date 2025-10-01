@@ -142,6 +142,34 @@ Potential failures:
 ## Customizing the Dockerfile
 You can safely edit the generated file after creation. To regenerate, just delete/rename it and re-run the tool. If you want permanent template changes, modify `dockerfile.tmpl` in the source and rebuild the CLI.
 
+## Container Image
+A published container image is built on tagged releases and pushed to GitHub Container Registry (GHCR).
+
+Image references (examples for version v0.2.0):
+```
+# Exact version
+ghcr.io/${GITHUB_REPOSITORY}:v0.2.0
+# Major+minor tag
+ghcr.io/${GITHUB_REPOSITORY}:v0.2
+# Major tag
+ghcr.io/${GITHUB_REPOSITORY}:v0
+# Latest tag
+ghcr.io/${GITHUB_REPOSITORY}:latest
+```
+
+Run the CLI via container:
+```bash
+docker run --rm ghcr.io/${GITHUB_REPOSITORY}:latest --version
+
+docker run --rm -v "$PWD":"/workspace" -w /workspace \
+  ghcr.io/${GITHUB_REPOSITORY}:latest \
+  --csproj path/to/Project.csproj
+```
+
+Multi-arch support: linux/amd64, linux/arm64.
+
+The image is based on `alpine` and runs as an unprivileged user (UID 10001).
+
 ## Releases
 This repository is configured with GoReleaser and a GitHub Actions workflow to build and publish multi-platform archives automatically when you push a tag starting with `v`.
 

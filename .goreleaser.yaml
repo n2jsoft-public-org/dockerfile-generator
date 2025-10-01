@@ -40,7 +40,31 @@ archives:
 checksum:
   name_template: 'checksums.txt'
 
-dockers: []
+# Docker image publishing to GitHub Container Registry (GHCR).
+# Requires docker/login-action and buildx setup in workflow.
+
+dockers:
+  - id: cli-image
+    # Use buildx for multi-platform.
+    use: buildx
+    builds:
+      - dotnet-dockerfile-gen
+    dockerfile: Dockerfile.cli
+    image_templates:
+      - ghcr.io/{{ .Env.GITHUB_REPOSITORY }}:{{ .Version }}
+      - ghcr.io/{{ .Env.GITHUB_REPOSITORY }}:latest
+      - ghcr.io/{{ .Env.GITHUB_REPOSITORY }}:v{{ .Major }}
+      - ghcr.io/{{ .Env.GITHUB_REPOSITORY }}:v{{ .Major }}.{{ .Minor }}
+    build_flag_templates:
+      - --platform=linux/amd64,linux/arm64
+      - --label=org.opencontainers.image.title=dotnet-dockerfile-gen
+      - --label=org.opencontainers.image.source=https://github.com/{{ .Env.GITHUB_REPOSITORY }}
+      - --label=org.opencontainers.image.revision={{ .Commit }}
+      - --label=org.opencontainers.image.created={{ .Date }}
+      - --label=org.opencontainers.image.version={{ .Version }}
+      - --label=org.opencontainers.image.licenses=MIT
+    extra_files:
+      - README.md
 
 changelog:
   sort: asc
