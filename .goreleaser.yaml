@@ -1,0 +1,67 @@
+# GoReleaser configuration for dotnet-dockerfile-gen
+# See https://goreleaser.com for full reference.
+
+project_name: dotnet-dockerfile-gen
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: dotnet-dockerfile-gen
+    main: .
+    binary: dotnet-dockerfile-gen
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+    flags:
+      - -trimpath
+
+archives:
+  - id: default
+    builds:
+      - dotnet-dockerfile-gen
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    files:
+      - README.md
+      - LICENSE* # optional, included if present
+
+checksum:
+  name_template: 'checksums.txt'
+
+dockers: []
+
+distribution: github
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+
+snapshot:
+  name_template: '{{ .Tag }}-next'
+
+dist: dist
+
+release:
+  draft: false
+  prerelease: auto
+
+git:
+  tag_sort: -version:refname
+

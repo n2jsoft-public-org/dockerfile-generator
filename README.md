@@ -142,6 +142,49 @@ Potential failures:
 ## Customizing the Dockerfile
 You can safely edit the generated file after creation. To regenerate, just delete/rename it and re-run the tool. If you want permanent template changes, modify `dockerfile.tmpl` in the source and rebuild the CLI.
 
+## Releases
+This repository is configured with GoReleaser and a GitHub Actions workflow to build and publish multi-platform archives automatically when you push a tag starting with `v`.
+
+### Version Flag
+The binary supports:
+```bash
+dotnet-dockerfile-gen --version
+```
+Output format:
+```
+<binary> version <semver> (commit <short-sha>, built <date>)
+```
+Values are injected at build time via `-ldflags` by GoReleaser (`main.version`, `main.commit`, `main.date`).
+
+### Release Flow
+1. Ensure `main` (or your release branch) is clean & tested.
+2. Decide on a semantic version (e.g. `v0.1.0`).
+3. Create and push the tag:
+   ```bash
+   git tag v0.1.0
+   git push origin v0.1.0
+   ```
+4. GitHub Actions workflow `.github/workflows/release.yml` triggers:
+   - Runs `go build` sanity check.
+   - Executes GoReleaser to build archives for: `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`, `windows/amd64`, `windows/arm64`.
+   - Attaches artifacts + checksums to the GitHub Release.
+
+### Snapshot (Local) Release
+You can simulate a release locally without publishing:
+```bash
+go install github.com/goreleaser/goreleaser@latest
+goreleaser release --snapshot --clean
+```
+Artifacts will appear under `dist/`.
+
+### Customizing
+Edit `.goreleaser.yaml` to adjust:
+- `goos` / `goarch` matrix
+- Archive naming / included files
+- Changelog filtering
+
+If you add a `LICENSE` file it will automatically be bundled when present.
+
 ## Roadmap / Ideas
 - Support solution (.sln) input.
 - Optional pruning of unused files before final copy.

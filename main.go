@@ -8,13 +8,34 @@ import (
 	"strings"
 )
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	var csprojPath string
 	var dockerfileName string
+	var showVersion bool
+
+	// Pre-scan args to allow `--version` (Go's flag pkg only guarantees single dash handling)
+	for _, a := range os.Args[1:] {
+		if a == "--version" || a == "-version" { // capture both forms
+			showVersion = true
+			break
+		}
+	}
 
 	flag.StringVar(&csprojPath, "csproj", "", "Path to the .csproj file (required)")
 	flag.StringVar(&dockerfileName, "dockerfile", "Dockerfile", "Name of the Dockerfile to generate (optional)")
+	flag.BoolVar(&showVersion, "version", showVersion, "Print version information and exit")
 	flag.Parse()
+
+	if showVersion {
+		fmt.Printf("%s version %s (commit %s, built %s)\n", filepath.Base(os.Args[0]), version, commit, date)
+		return
+	}
 
 	if csprojPath == "" {
 		fmt.Fprintf(os.Stderr, "Error: .csproj path is required\n")
@@ -49,16 +70,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error loading project context: %v\n", err)
 		os.Exit(1)
 	}
-
-	// Generate Dockerfile
-	//	dockerfile := generateDockerfile(project, filepath.Base(csprojPath))
-
-	// Write Dockerfile
-	//	err = writeDockerfile(dockerfileName, dockerfile)
-	//	if err != nil {
-	//		fmt.Fprintf(os.Stderr, "Error writing Dockerfile: %v\n", err)
-	//		os.Exit(1)
-	//	}
 
 	destinationPath := filepath.Join(filepath.Dir(csprojPath), dockerfileName)
 	if err := generateDockerfile(project, additionalFilePaths, destinationPath); err != nil {
