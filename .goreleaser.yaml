@@ -47,7 +47,7 @@ dockers:
   - id: cli-image
     # Use buildx for multi-platform.
     use: buildx
-    builds:
+    ids: # reference the Go build IDs to include in this docker build
       - dotnet-dockerfile-gen
     dockerfile: Dockerfile.cli
     image_templates:
