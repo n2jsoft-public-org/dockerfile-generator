@@ -56,7 +56,10 @@ dockers:
       - ghcr.io/{{ .Env.GITHUB_REPOSITORY }}:v{{ .Major }}
       - ghcr.io/{{ .Env.GITHUB_REPOSITORY }}:v{{ .Major }}.{{ .Minor }}
     build_flag_templates:
-      - --platform=linux/amd64,linux/arm64
+      # Push only on real (non-snapshot) releases so buildx can create/push the multi-arch manifest list.
+      - '{{ if not .IsSnapshot }}--push{{ end }}'
+      # Use multi-arch only when pushing; fall back to single arch on snapshots to avoid manifest list exporter error.
+      - '{{ if .IsSnapshot }}--platform=linux/amd64{{ else }}--platform=linux/amd64,linux/arm64{{ end }}'
       - --label=org.opencontainers.image.title=dotnet-dockerfile-gen
       - --label=org.opencontainers.image.source=https://github.com/{{ .Env.GITHUB_REPOSITORY }}
       - --label=org.opencontainers.image.revision={{ .Commit }}
