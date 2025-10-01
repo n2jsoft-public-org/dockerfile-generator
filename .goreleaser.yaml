@@ -42,8 +42,6 @@ checksum:
 
 dockers: []
 
-distribution: github
-
 changelog:
   sort: asc
   filters:
@@ -64,4 +62,3 @@ release:
 
 git:
   tag_sort: -version:refname
-
