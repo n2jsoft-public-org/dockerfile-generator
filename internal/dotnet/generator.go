@@ -14,6 +14,7 @@ import (
 	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/generator"
 )
 
+// TemplateContext is the data model used to render the dotnet Dockerfile template.
 type TemplateContext struct {
 	AdditionalFilePaths []common.AdditionalFilePath
 	Project             Project
@@ -22,10 +23,15 @@ type TemplateContext struct {
 	BaseSdkImage        string
 }
 
+// DotnetGenerator implements generator.Generator for .NET projects.
+//
+//revive:disable-next-line:exported
 type DotnetGenerator struct{}
 
+// Name returns the canonical language key for this generator.
 func (d DotnetGenerator) Name() string { return config.LanguageDotnet }
 
+// Detect returns true if the provided path looks like a single .csproj or a directory containing exactly one .csproj.
 func (d DotnetGenerator) Detect(path string) (bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -49,6 +55,7 @@ func (d DotnetGenerator) Detect(path string) (bool, error) {
 	return false, nil
 }
 
+// Load resolves the target project (or the single .csproj inside the directory) and returns the project graph + additional context files.
 func (d DotnetGenerator) Load(projectPath, repoRoot string) (
 	generator.ProjectData,
 	[]common.AdditionalFilePath,
@@ -88,6 +95,7 @@ func (d DotnetGenerator) Load(projectPath, repoRoot string) (
 	return proj, additional, nil
 }
 
+// GenerateDockerfile renders the Dockerfile into dest using the discovered project + configuration.
 func (d DotnetGenerator) GenerateDockerfile(
 	project generator.ProjectData,
 	additional []common.AdditionalFilePath,
@@ -111,24 +119,27 @@ func (d DotnetGenerator) GenerateDockerfile(
 	}
 	slog.Debug("dotnet image selection", "runtime", baseImage, "sdk", baseSdkImage, "additionalFiles", len(additional))
 
-	// Choose template (could allow override later)
 	tmpl, err := template.New("dotnet-dockerfile").Parse(defaultTemplate)
 	if err != nil {
 		return err
 	}
-	f, err := os.Create(dest)
+	f, err := os.Create(dest) // #nosec G304 - destination path intentionally created in working directory
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	slog.Info("writing Dockerfile", "path", dest, "project", proj.GetName())
-	return tmpl.Execute(f, TemplateContext{
+	// Execute then close explicitly to surface close errors (errcheck compliance).
+	execErr := tmpl.Execute(f, TemplateContext{
 		AdditionalFilePaths: additional,
 		Project:             proj,
 		Config:              cfg,
 		BaseImage:           baseImage,
 		BaseSdkImage:        baseSdkImage,
 	})
+	closeErr := f.Close()
+	if execErr != nil {
+		return execErr
+	}
+	return closeErr
 }
 
 func init() { generator.Register(DotnetGenerator{}) }

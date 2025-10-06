@@ -1,3 +1,4 @@
+version: 2
 run:
   timeout: 5m
   tests: true
@@ -9,30 +10,15 @@ linters-settings:
     min-occurrences: 3
   govet:
     enable-all: true
-    settings:
-      printf: { }
-  revive:
-    severity: warning
-issues:
-  exclude-use-default: false
-  max-issues-per-linter: 0
-  max-same-issues: 0
 linters:
   enable:
     - govet
     - revive
     - gocyclo
-    - gofumpt
-    - goimports
     - goconst
+    - staticcheck
     - ineffassign
     - unconvert
-    - gosec
-    - staticcheck
     - misspell
     - errcheck
-  disable:
-    - depguard
-output:
-  formats:
-    - format: colored-line-number
+    - gosec

@@ -1,3 +1,4 @@
+// Package dotnet provides .NET project parsing, dependency graph loading and context discovery.
 package dotnet
 
 import (
@@ -26,6 +27,7 @@ func newSearchCache() *searchCache {
 	return &searchCache{directoryFiles: map[string][]string{}, searchedDirs: map[string]bool{}}
 }
 
+// LoadProjectContextFromProject discovers additional context files (nuget.config, Directory.* props) for the whole project graph.
 func LoadProjectContextFromProject(project Project, rootPath string) ([]common.AdditionalFilePath, error) {
 	var additionalPaths []common.AdditionalFilePath
 	seen := map[string]bool{}

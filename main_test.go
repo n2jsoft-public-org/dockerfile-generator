@@ -17,13 +17,10 @@ func TestTranslateLegacyLongFlags(t *testing.T) {
 	for _, c := range cases {
 		got := translateLegacyLongFlags(c.in)
 		if len(got) != len(c.out) {
-			// show slice for debugging
-			// ... not failing on length difference alone if content diff handled below
+			t.Fatalf("%s: length mismatch exp %d got %d", c.name, len(c.out), len(got))
 		}
 		for i := range c.out {
 			if got[i] != c.out[i] {
-				// detailed diff
-				// mark failure
 				t.Fatalf("%s: expected %v got %v", c.name, c.out, got)
 			}
 		}

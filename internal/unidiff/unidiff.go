@@ -1,3 +1,4 @@
+// Package unidiff provides a small unified diff implementation for short text files.
 package unidiff
 
 import (
@@ -105,6 +106,5 @@ func splitKeepNL(s string) []string {
 }
 
 func ensureNoExtraNewline(line string) string {
-	// line already contains trailing newline if originally present.
 	return line
 }

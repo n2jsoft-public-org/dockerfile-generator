@@ -24,6 +24,7 @@
 - [Autodetection Logic](#-autodetection-logic)
 - [Version Output](#-version-flag)
 - [Troubleshooting](#-troubleshooting)
+- [Development](#-development)
 - [Roadmap](#-roadmap--ideas)
 - [Contributing](#-contributing)
 - [License](#-license)
@@ -239,15 +240,37 @@ Outputs:
 
 ---
 
-## 🗺 Roadmap / Ideas
-- ✅ Multi-language core
-- ⏳ Tests for generators
-- ⏳ `.sln` file root support
-- ⏳ Language-specific config extensions
-- ⏳ Automatic `.dockerignore` suggestion
-- 🔮 New languages (Node.js, Python, etc.) via pluggable generators
+## 🛠 Development
+A `Makefile` is provided to streamline local workflows (linting, testing, releasing, Docker build).
 
-Have a suggestion? Open an issue or PR! 📨
+Common targets:
+
+| Target | Description |
+|--------|-------------|
+| `make lint` | Run `golangci-lint` (auto-installs pinned version into `./bin`). |
+| `make test` | Run tests with race detector + coverage profile. |
+| `make coverage` | Run tests (if needed) and enforce coverage threshold (`COVERAGE_MIN`, default 60%). |
+| `make build` | Build the CLI binary into `./bin/dockerfile-gen`. |
+| `make snapshot` | Run GoReleaser in snapshot mode (no publish). |
+| `make release` | Full GoReleaser release (requires tag + `GITHUB_TOKEN`). |
+| `make docker` | Build a local Docker image `dockerfile-gen:dev`. |
+| `make tidy` | Ensure `go.mod` / `go.sum` are tidy. |
+| `make ci` | Run `lint` then `test` (approximate CI pipeline). |
+| `make clean` | Remove build artifacts (`bin/`, `dist/`, coverage file). |
+
+Environment overrides:
+- `GOLANGCI_LINT_VERSION` to pin a different golangci-lint version.
+- `COVERAGE_MIN` to raise/lower the required coverage percentage.
+- `VERSION` for custom build version (defaults to `dev`).
+
+Example:
+```bash
+make lint
+make test COVERAGE_MIN=70
+make build VERSION=$(git describe --tags --always)
+```
+
+> Tip: Run `make help` to list available targets.
 
 ---
 

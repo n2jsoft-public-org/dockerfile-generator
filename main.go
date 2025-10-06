@@ -75,7 +75,7 @@ func main() {
 It supports autodetection of project type (.csproj / go.mod) or explicit language selection.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRun: func(_ *cobra.Command, _ []string) {
 			lvl := slog.LevelInfo
 			if verbose {
 				lvl = slog.LevelDebug
@@ -84,7 +84,7 @@ It supports autodetection of project type (.csproj / go.mod) or explicit languag
 			slog.SetDefault(logger)
 			Debugf("starting command with args: %v", os.Args[1:])
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			// Version first so -v doesn't require --path
 			if versionLower || versionUpper {
 				fmt.Printf("%s version %s (commit %s, built %s)\n", filepath.Base(os.Args[0]), version, commit, date)
@@ -175,18 +175,18 @@ It supports autodetection of project type (.csproj / go.mod) or explicit languag
 				}
 				tmpPath := tmp.Name()
 				_ = tmp.Close()
-				defer os.Remove(tmpPath)
+				defer func() { _ = os.Remove(tmpPath) }()
 				if err := gen.GenerateDockerfile(project, additional, tmpPath, cfg); err != nil {
 					return fmt.Errorf("error generating Dockerfile (dry-run): %w", err)
 				}
 				Debugf("generated temporary Dockerfile at %s", tmpPath)
-				newBytes, err := os.ReadFile(tmpPath)
+				newBytes, err := os.ReadFile(tmpPath) // #nosec G304 - tmpPath created via os.CreateTemp
 				if err != nil {
 					return fmt.Errorf("error reading generated Dockerfile: %w", err)
 				}
 				var oldBytes []byte
 				if _, err := os.Stat(dest); err == nil {
-					oldBytes, _ = os.ReadFile(dest)
+					oldBytes, _ = os.ReadFile(dest) // #nosec G304 - dest is within project directory
 				}
 				Debugf("existing Dockerfile size: %d bytes, new size: %d bytes", len(oldBytes), len(newBytes))
 				if string(oldBytes) == string(newBytes) {

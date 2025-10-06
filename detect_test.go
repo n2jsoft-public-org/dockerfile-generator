@@ -26,10 +26,10 @@ const sampleGoMod = `module example.com/app
 go 1.23`
 
 func writeFile(t *testing.T, path, content string) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 }
@@ -59,7 +59,7 @@ func TestDotnetDetectAndGenerate(t *testing.T) {
 		t.Fatalf("detect failed: %v", err)
 	}
 	root := dir // treat temp dir as root (simulate .git) by creating a .git folder
-	if err := os.Mkdir(filepath.Join(root, ".git"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o750); err != nil {
 		t.Fatalf("git dir: %v", err)
 	}
 	proj, additional, err := gen.Load(projPath, root)
@@ -74,7 +74,7 @@ func TestDotnetDetectAndGenerate(t *testing.T) {
 	if err := gen.GenerateDockerfile(proj, additional, dest, cfg); err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	data, err := os.ReadFile(dest)
+	data, err := os.ReadFile(dest) // #nosec G304 - reading generated file in test
 	if err != nil {
 		t.Fatalf("read dockerfile: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestGoDetectAndGenerate(t *testing.T) {
 		t.Fatalf("detect failed: %v", err)
 	}
 	root := dir
-	if err := os.Mkdir(filepath.Join(root, ".git"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o750); err != nil {
 		t.Fatalf("git dir: %v", err)
 	}
 	proj, additional, err := gen.Load(dir, root)
@@ -112,7 +112,7 @@ func TestGoDetectAndGenerate(t *testing.T) {
 	if err := gen.GenerateDockerfile(proj, additional, dest, cfg); err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	data, err := os.ReadFile(dest)
+	data, err := os.ReadFile(dest) // #nosec G304 - reading generated file in test
 	if err != nil {
 		t.Fatalf("read dockerfile: %v", err)
 	}
