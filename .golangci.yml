@@ -35,6 +35,4 @@ linters:
     - depguard
 output:
   formats:
-    - format: github-actions
-      path-prefix: .
     - format: colored-line-number

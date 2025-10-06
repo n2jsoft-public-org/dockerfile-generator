@@ -29,11 +29,13 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          args: --timeout=5m
+      - name: Install golangci-lint (from source)
+        run: |
+          set -euo pipefail
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          golangci-lint version
+      - name: Run golangci-lint
+        run: golangci-lint run --timeout=5m
 
   test:
     name: Build & Test
@@ -86,8 +88,9 @@ jobs:
           TOTAL=$(go tool cover -func=coverage.out | grep total: | awk '{print $3}')
           PCT=${TOTAL%%%}
           echo "Total coverage: $PCT% (minimum ${COVERAGE_MIN}%)"
-          # numeric compare using awk to handle decimals
-          if awk -v c="$PCT" -v m="$COVERAGE_MIN" 'BEGIN{exit (c+0 < m+0)?0:1}'; then
+          if awk -v c="$PCT" -v m="$COVERAGE_MIN" 'BEGIN{exit (c+0 >= m+0)?0:1}'; then
+            echo "Coverage OK (>= ${COVERAGE_MIN}%)"
+          else
             echo "Coverage below threshold (${COVERAGE_MIN}%). Failing." >&2
             exit 1
           fi
