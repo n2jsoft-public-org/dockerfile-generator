@@ -58,7 +58,7 @@ Building Docker images often wastes time by copying the full source tree before 
 With Go installed (1.21+ recommended, built with 1.25 target):
 
 ```bash
-go install github.com/n2jsoft-public-org/dotnet-dockerfile-generator@latest
+go install github.com/n2jsoft-public-org/dockerfile-generator@latest
 ```
 
 Or build locally:
@@ -68,7 +68,7 @@ cd dotnet-dockerfile-gen
 go build -o dockerfile-gen ./...
 ```
 
-> Note: The module path is `github.com/n2jsoft-public-org/dotnet-dockerfile-generator`. If your fork or repo name differs (e.g. `dotnet-dockerfile-gen`), adjust accordingly.
+> Note: The module path is `github.com/n2jsoft-public-org/dockerfile-generator`. If your fork or repo name differs (e.g. `dotnet-dockerfile-gen`), adjust accordingly.
 
 ---
 
