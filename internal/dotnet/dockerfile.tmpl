@@ -1,0 +1,53 @@
+# syntax=docker/dockerfile:1
+ARG TARGET_DOTNET_VERSION=9.0
+FROM {{ .BaseImage }} AS base
+WORKDIR /app
+EXPOSE 8080
+ENV \
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
+    LC_ALL=en_US.UTF-8 \
+    LANG=en_US.UTF-8
+{{ if .Config.Base.Packages }}RUN apk add --no-cache \
+    {{ range $i, $p := .Config.Base.Packages }}{{if $i}} \
+    {{end}}{{ $p }}{{ end }}{{ end }}
+USER $APP_UID
+
+FROM {{ .BaseSdkImage }} AS base_build
+ARG BUILD_CONFIGURATION=Release
+ARG NuGetPackageSourceToken_gh
+ENV NuGetPackageSourceCredentials_gh="Username=docker_n2jsoft;Password=${NuGetPackageSourceToken_gh}"
+{{ if .Config.BaseBuild.Packages }}RUN apk add --no-cache \
+    {{ range $i, $p := .Config.BaseBuild.Packages }}{{if $i}} \
+    {{end}}{{ $p }}{{ end }}{{ end }}
+WORKDIR /build
+
+FROM base_build AS build
+ARG TARGET_DOTNET_VERSION
+{{range .Project.GetAllProjectReferences}}
+COPY ["{{.GetRelativePath}}", "{{.GetDirectoryRelativePath}}"]{{end}}
+{{range .AdditionalFilePaths}}
+COPY ["{{.GetRelativePath}}", "{{.GetRelativePath}}"]{{end}}
+RUN dotnet restore "./{{.Project.GetRelativePath}}"
+COPY . .
+WORKDIR "/build/{{.Project.GetDirectoryRelativePath}}"
+RUN dotnet build "./{{.Project.GetFileName}}" \
+    -c $BUILD_CONFIGURATION \
+    -f net${TARGET_DOTNET_VERSION} \
+    -o /app/build
+
+FROM build AS publish
+ARG BUILD_CONFIGURATION=Release
+ARG APP_VERSION=0.0.1
+ARG TARGET_DOTNET_VERSION
+RUN dotnet publish "./{{.Project.GetFileName}}" \
+    -c $BUILD_CONFIGURATION \
+    -o /app/publish \
+    -p:Version=$APP_VERSION \
+    -f net${TARGET_DOTNET_VERSION} \
+    /p:UseAppHost=false
+
+FROM base AS final
+WORKDIR /app
+ARG TARGET_DOTNET_VERSION
+COPY --from=publish --chown=$APP_UID:$APP_UID /app/publish .
+ENTRYPOINT ["dotnet", "{{.Project.GetName}}.dll"]

@@ -1,239 +1,214 @@
-# dotnet-dockerfile-gen
+# dockerfile-gen (dotnet + go)
 
-A tiny Go-powered CLI that generates an optimized multi-stage Dockerfile for a .NET (C#) application starting from a single `.csproj` file. It analyzes the project graph (project references), discovers shared build context files (like `nuget.config`, `Directory.Build.props`, `Directory.Packages.props`), and emits a reproducible Dockerfile that speeds up `dotnet restore` by copying only what is necessary early in the image build.
+A tiny Go-powered CLI that generates optimized multi-stage Dockerfiles for:
+- .NET (C#) projects (from a `.csproj` file or directory containing one)
+- Go modules (from a `go.mod` file or directory)
+
+It analyzes the project (and referenced projects for .NET), discovers shared build context files (like `nuget.config`, `Directory.Build.props`, `Directory.Packages.props`), and emits a reproducible Dockerfile tuned for build caching. A lightweight YAML config (`.dockerbuild`) lets you override base images and add packages for build/runtime stages.
+
+## What's New
+- Multi-language architecture via pluggable generators (`internal/dotnet`, `internal/golang`).
+- Autodetection of language based on path (`.csproj`, `go.mod`).
+- `--language` flag to explicitly force a language (`dotnet`, `go`).
+- Short flag aliases: `-p` (path), `-f` (dockerfile), `-l` (language), `-d` (dry-run), `-v`/`-V` (version).
+- Cobra-based CLI (supports `--long` + `-short` flags). Legacy single-dash long forms like `-path` are still accepted for backward compatibility.
+- Config file `.dockerbuild` with optional fields:
+  ```yaml
+  language: dotnet            # optional; overrides autodetection
+  base:                       # runtime stage image & packages
+    image: mcr.microsoft.com/dotnet/aspnet:9.0-alpine
+    packages:
+      - icu-data-full
+      - icu-libs
+  base-build:                 # build stage image & packages
+    image: mcr.microsoft.com/dotnet/sdk:9.0-alpine
+    packages:
+      - git
+  ```
+  Example for Go:
+  ```yaml
+  language: go
+  base:
+    image: alpine:3.20
+    packages:
+      - ca-certificates
+  base-build:
+    image: golang:1.23-alpine
+    packages:
+      - build-base
+  ```
+
+If `language` is omitted in the config and `--language` flag is not provided, autodetection runs.
 
 ## Why?
-Building Docker images for multi-project .NET solutions often causes unnecessary cache invalidations because the entire source tree is copied before `dotnet restore`. This tool:
-- Copies only referenced project files first so `dotnet restore` is cache-friendly.
-- Includes shared dependency/config files automatically.
-- Leaves you with a clean, parameterized Dockerfile you can commit or regenerate.
+Building Docker images often causes unnecessary cache invalidations because the entire source tree is copied before dependency restore. This tool:
+- (dotnet) Copies only referenced project & context files before `dotnet restore` for better caching.
+- (go) Uses multi-stage build with module and build caches mounted.
+- Lets you tune base / build images and add OS packages without hand-editing every Dockerfile.
 
 ## Key Features
-- Project graph traversal (follows `<ProjectReference>` recursively).
-- Circular reference detection (fails fast if a loop is found).
-- Automatic inclusion of:
-  - `nuget.config` (first one found under repo root)  
-  - Any `Directory.Build.props` in the directory chain of each project  
-  - Any `Directory.Packages.props` in the directory chain of each project
-- Generates a multi-stage Alpine-based Dockerfile (runtime + build + publish stages).
-- Parameterized with build args: `TARGET_DOTNET_VERSION`, `BUILD_CONFIGURATION`, `APP_VERSION`, `NuGetPackageSourceToken_gh`.
-- Keeps copy layers minimal before `dotnet restore` for better caching.
-
-## How It Works (High-Level Flow)
-1. You pass a path to a `.csproj` file.
-2. The tool walks upward from that path to locate the repository root (first directory containing a `.git` folder).
-3. It parses the project file and recursively loads referenced projects.
-4. It builds a unique list of all projects plus additional context files.
-5. It renders `dockerfile.tmpl` with the gathered metadata to the desired Dockerfile path.
-
-## Generated Dockerfile Structure
-Stages:
-1. `base` – Runtime image (`aspnet:<TARGET_DOTNET_VERSION>-alpine`), installs ICU globalization bits, sets UTF-8 locale, switches to `USER $APP_UID` (you must provide this user at build or runtime; see Notes).
-2. `base_build` – SDK image with environment prepared for private NuGet feeds.
-3. `build` – Copies all project + context files individually, runs `dotnet restore`, then copies the remainder of the source tree and compiles (`dotnet build`).
-4. `publish` – Runs `dotnet publish` (self-contained toggle disabled with `/p:UseAppHost=false`).
-5. `final` – Copies published output into the runtime image and sets `ENTRYPOINT` to the main DLL.
-
-Important template details:
-- Default `ARG TARGET_DOTNET_VERSION=9.0` controls both runtime + SDK images and the target framework (`net${TARGET_DOTNET_VERSION}`).
-- Additional build args:
-  - `BUILD_CONFIGURATION` (default `Release`)
-  - `APP_VERSION` (default `0.0.1`, passed as `/p:Version`)
-  - `NuGetPackageSourceToken_gh` (used to build `NuGetPackageSourceCredentials_gh` env var for authenticated feeds)
-- Uses `COPY ["path/to/project.csproj", "path/to/"]` style to optimize layer invalidation.
-- Uses `--chown=$APP_UID:$APP_UID` on the copy from `publish` to final stage.
-
-## Requirements & Assumptions
-- You have a Git repository (used to determine the root). If no `.git` directory is found upward from the `.csproj`, generation fails.
-- The `.csproj` path you pass exists and is a valid XML project file.
-- If you plan to use a non-root user, ensure the user with UID `$APP_UID` exists in the final image (the template does not create it). You may need to extend the Dockerfile or add a stage to add the user.
-- The target framework of all referenced projects must match or be compatible with the `TARGET_DOTNET_VERSION` you build with.
+- Multi-language: dotnet + go (extensible design).
+- Project graph traversal for .NET (follows `<ProjectReference>` recursively, detects circular refs).
+- Automatic inclusion of shared .NET context files:
+  - First `nuget.config` under the repo root
+  - All `Directory.Build.props` and `Directory.Packages.props` in the directory chain of each project
+- YAML config overrides for base images & packages per stage.
+- Parameterized Dockerfiles with sensible, cache-friendly layering.
 
 ## Installation
 With Go installed (1.21+ recommended):
-
 ```bash
-go install github.com/your-org-or-user/dotnet-dockerfile-gen@latest
+go install github.com/maxime-charles_n2jsoft/dotnet-dockerfile-gen@latest
 ```
 
-(Replace the module path above with the actual repository path if different.)
-
 Or build locally:
-
 ```bash
 git clone <repo-url>
 cd dotnet-dockerfile-gen
-go build -o dotnet-dockerfile-gen ./...
+go build -o dockerfile-gen ./...
 ```
 
 ## CLI Usage
+General form:
 ```
-dotnet-dockerfile-gen --csproj /absolute/or/relative/path/to/MyApp.csproj [--dockerfile Dockerfile.Custom]
+dockerfile-gen --path <project-or-dir> [--language dotnet|go] [--dockerfile Dockerfile] [--dry-run]
 ```
+(Short forms also accepted: `-p`, `-l`, `-f`, `-d`. Version: `-v` / `-V`.)
+Legacy: single-dash long forms (`-path`, `-language`, etc.) still work but are deprecated.
 
 ### Flags
-- `--csproj` (string, required): Path to the main project file you want to containerize.
-- `--dockerfile` (string, optional): Output Dockerfile name. Default: `Dockerfile` (written alongside the `.csproj`).
+- `-p, --path` (string, required):
+  - .NET: path to a `.csproj` file OR a directory containing exactly one `.csproj`.
+  - Go: path to a `go.mod` file OR the module root directory.
+- `-l, --language` (optional): Force generator (`dotnet`, `go`). Skips autodetection.
+- `-f, --dockerfile` (optional): Output file name (default `Dockerfile`).
+- `-d, --dry-run` (optional): Generate to a temp file and print a unified diff vs existing Dockerfile (no file written).
+- `-v, -V, --version` (optional): Print version metadata.
 
 ### Exit Codes
 - `0` success
-- `1` validation or IO/parsing error (missing file, not a `.csproj`, cannot find git root, parse failure, circular reference, etc.)
+- `1` validation or processing failure
 
-## Example
-Assume structure:
-```
-repo/
-  .git/
-  src/
-    WebApi/WebApi.csproj
-    Core/Core.csproj
-    Shared/Shared.csproj
-  nuget.config
-  Directory.Build.props
-```
-
-Run:
+## Examples
+### Generate for a .NET web project
 ```bash
-dotnet-dockerfile-gen --csproj ./src/WebApi/WebApi.csproj
+dockerfile-gen -p ./src/WebApi/WebApi.csproj
 ```
-Produces `./src/WebApi/Dockerfile` with COPY entries for:
-- `src/WebApi/WebApi.csproj`
-- `src/Core/Core.csproj`
-- `src/Shared/Shared.csproj`
-- `nuget.config`
-- `Directory.Build.props`
-
-Then you can build:
+### Generate for a directory that contains one .csproj
 ```bash
-docker build \
-  --build-arg TARGET_DOTNET_VERSION=9.0 \
-  --build-arg BUILD_CONFIGURATION=Release \
-  --build-arg APP_VERSION=1.2.3 \
-  --build-arg NuGetPackageSourceToken_gh=$NUGET_TOKEN \
-  -t myapp:1.2.3 \
-  -f src/WebApi/Dockerfile .
+dockerfile-gen --path ./src/WebApi
 ```
-
-Run:
+### Force language
 ```bash
-docker run -e ASPNETCORE_URLS=http://+:8080 -p 8080:8080 myapp:1.2.3
+dockerfile-gen -p ./src/WebApi --language dotnet
+```
+### Go module
+```bash
+dockerfile-gen -p ./service
+```
+### Go module specifying language & output name
+```bash
+dockerfile-gen -p ./service -l go -f Dockerfile.service
 ```
 
-## Working With Private NuGet Feeds
-If `nuget.config` defines a source named `gh`, the template exposes:
-- Build arg: `NuGetPackageSourceToken_gh`
-- Env var inside build stage: `NuGetPackageSourceCredentials_gh` with a fixed username `docker_n2jsoft` and the supplied token as password.
-Adjust the template if your feed name or credential format differs.
+### With a config file
+Place `.dockerbuild` next to your `.csproj` or `go.mod`:
+```yaml
+language: dotnet
+base:
+  image: mcr.microsoft.com/dotnet/aspnet:9.0-alpine
+  packages:
+    - icu-data-full
+base-build:
+  image: mcr.microsoft.com/dotnet/sdk:9.0-alpine
+  packages:
+    - git
+```
+Then run:
+```bash
+dockerfile-gen -p ./src/WebApi/WebApi.csproj
+```
 
-## Additional Files Discovery Logic
+## Generated Dockerfile (Dotnet Overview)
+Stages (simplified):
+1. `base` runtime image (aspnet) + optional packages
+2. `base_build` SDK image + optional packages
+3. `build` copies project graph & context, runs `dotnet restore`, then source & `dotnet build`
+4. `publish` runs `dotnet publish`
+5. `final` runtime image with published output
+
+Supported build args (dotnet):
+- `TARGET_DOTNET_VERSION` (default `9.0`)
+- `BUILD_CONFIGURATION` (default `Release`)
+- `APP_VERSION` (default `0.0.1`)
+- `NuGetPackageSourceToken_gh` (if private feed credentials pattern is used)
+
+## Generated Dockerfile (Go Overview)
+Stages:
+1. `build` (golang:<version>-alpine or override) with module & build caches
+2. `final` (alpine or override)
+
+Build arg:
+- `GO_VERSION` (default in template `1.23` unless overridden by base-build image)
+
+## .NET Context Discovery
 For each project (root + referenced):
-- Scans upward (toward repo root) collecting `Directory.Build.props` and `Directory.Packages.props` found at each directory level.
-- Adds the first `nuget.config` found (only once globally) anywhere under the repo root.
-- Ensures uniqueness (no duplicates copied twice).
+- Walks upward to repo root capturing `Directory.Build.props` and `Directory.Packages.props`.
+- Adds first discovered `nuget.config` once globally.
+- Ensures unique file copy entries.
 
-## Error Handling
-Potential failures:
-- Missing `.csproj` file or wrong extension.
-- Cannot locate Git root (no `.git` found up the directory tree).
-- XML parse error in project files.
-- Circular project reference chain (detected and reported).
-- Referenced project file missing (logged as warning and skipped unless it is the main project).
-
-## Customizing the Dockerfile
-You can safely edit the generated file after creation. To regenerate, just delete/rename it and re-run the tool. If you want permanent template changes, modify `dockerfile.tmpl` in the source and rebuild the CLI.
-
-## Container Image
-A published container image is built on tagged releases and pushed to GitHub Container Registry (GHCR).
-
-Image references (examples for version v0.2.0):
+## Config File Reference (`.dockerbuild`)
+```yaml
+language: dotnet|go   # optional
+base:
+  image: <string>     # optional runtime stage base image
+  packages:           # optional list of apk packages to install (alpine-based images)
+    - pkg1
+    - pkg2
+base-build:
+  image: <string>     # optional build stage base image
+  packages:
+    - build-pkg
 ```
-# Exact version
-ghcr.io/${GITHUB_REPOSITORY}:v0.2.0
-# Major+minor tag
-ghcr.io/${GITHUB_REPOSITORY}:v0.2
-# Major tag
-ghcr.io/${GITHUB_REPOSITORY}:v0
-# Latest tag
-ghcr.io/${GITHUB_REPOSITORY}:latest
-```
+Missing fields are ignored; no defaults are forced except `language` fallback to autodetect.
 
-Run the CLI via container:
+## Autodetection Logic
+- If `--language` provided: use that.
+- Else if config `language` set: use that.
+- Else detect:
+  - `.csproj` file path or directory containing exactly one `.csproj` -> `dotnet`
+  - Directory or file containing `go.mod` -> `go`
+
+## Version Flag
 ```bash
-docker run --rm ghcr.io/${GITHUB_REPOSITORY}:latest --version
-
-docker run --rm -v "$PWD":"/workspace" -w /workspace \
-  ghcr.io/${GITHUB_REPOSITORY}:latest \
-  --csproj path/to/Project.csproj
+dockerfile-gen -v
 ```
-
-Multi-arch support: linux/amd64, linux/arm64.
-
-The image is based on `alpine` and runs as an unprivileged user (UID 10001).
-
-## Releases
-This repository is configured with GoReleaser and a GitHub Actions workflow to build and publish multi-platform archives automatically when you push a tag starting with `v`.
-
-### Version Flag
-The binary supports:
-```bash
-dotnet-dockerfile-gen --version
+Outputs:
 ```
-Output format:
+<binary> version <semver> (commit <short>, built <date>)
 ```
-<binary> version <semver> (commit <short-sha>, built <date>)
-```
-Values are injected at build time via `-ldflags` by GoReleaser (`main.version`, `main.commit`, `main.date`).
-
-### Release Flow
-1. Ensure `main` (or your release branch) is clean & tested.
-2. Decide on a semantic version (e.g. `v0.1.0`).
-3. Create and push the tag:
-   ```bash
-   git tag v0.1.0
-   git push origin v0.1.0
-   ```
-4. GitHub Actions workflow `.github/workflows/release.yml` triggers:
-   - Runs `go build` sanity check.
-   - Executes GoReleaser to build archives for: `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`, `windows/amd64`, `windows/arm64`.
-   - Attaches artifacts + checksums to the GitHub Release.
-
-### Snapshot (Local) Release
-You can simulate a release locally without publishing:
-```bash
-go install github.com/goreleaser/goreleaser@latest
-goreleaser release --snapshot --clean
-```
-Artifacts will appear under `dist/`.
-
-### Customizing
-Edit `.goreleaser.yaml` to adjust:
-- `goos` / `goarch` matrix
-- Archive naming / included files
-- Changelog filtering
-
-If you add a `LICENSE` file it will automatically be bundled when present.
-
-## Roadmap / Ideas
-- Support solution (.sln) input.
-- Optional pruning of unused files before final copy.
-- Multi-arch build examples (BuildKit / `docker buildx`).
-- Auto-detection of runtime vs console app (`OutputType`).
-- User creation logic directly in template for non-root scenarios.
-- Option to emit `.dockerignore` suggestions.
 
 ## Troubleshooting
-- Layers not caching? Confirm that only project + context files changed; unrelated source edits should not invalidate earlier restore layers.
-- Build fails with user error: Provide `--build-arg APP_UID=...` and ensure user exists (extend Dockerfile or remove `USER $APP_UID` if not needed).
-- Wrong framework: Pass a matching `TARGET_DOTNET_VERSION` build arg (e.g., `8.0` for `net8.0`). Make sure projects target that framework.
+- Not detected: pass `-l` manually.
+- Multiple `.csproj` in directory: specify a single file path.
+- User permissions (dotnet): Provide `APP_UID` user in image or remove `USER $APP_UID` line.
+- Private NuGet feeds: Provide `NuGetPackageSourceToken_gh` build arg; adapt template if feed name differs.
+
+## Roadmap / Ideas
+- Tests for generators.
+- Support for .sln file as root.
+- Language-specific configuration extensions.
+- Automatic `.dockerignore` suggestion.
+- Additional languages (Node.js, Python) via new generator packages.
 
 ## Contributing
 1. Fork & clone.
 2. Create a feature branch.
-3. Add/update tests (if/when test suite exists).
+3. Update / add tests (future).
 4. Submit PR.
 
 ## License
-(Repository does not yet contain a LICENSE file. Add one—MIT, Apache 2.0, etc.—to clarify usage.)
+Add a `LICENSE` file (MIT / Apache-2.0 recommended).
 
 ## Disclaimer
-Use at your own risk. Generated Dockerfiles are a starting point; review security, vulnerability scanning, and production hardening practices before deploying.
+Generated Dockerfiles are a starting point; review for security hardening before production use.

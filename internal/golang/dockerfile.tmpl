@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1
+ARG GO_VERSION=1.23
+FROM {{ .BuildImage }} AS build
+WORKDIR /src
+COPY go.mod* .
+# Download modules (cache-friendly)
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+# Copy the rest of the source
+COPY . .
+# Build with caching for modules and build cache
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/app ./...
+
+FROM {{ .RuntimeImage }} AS final
+WORKDIR /app
+{{ if .RuntimePackages }}RUN apk add --no-cache \
+    {{- range $i, $p := .RuntimePackages }}{{if $i}} \\
+    {{end}}{{ $p }}{{ end }}
+{{ end }}
+COPY --from=build /out/app ./app
+ENTRYPOINT ["./app"]
