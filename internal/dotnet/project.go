@@ -14,29 +14,31 @@ import (
 	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/util"
 )
 
-type projectXml struct {
+// projectXML mirrors the root <Project> XML structure.
+type projectXML struct {
 	XMLName        xml.Name           `xml:"Project"`
-	PropertyGroups []propertyGroupXml `xml:"PropertyGroup"`
-	ItemGroups     []itemGroupXml     `xml:"ItemGroup"`
+	PropertyGroups []propertyGroupXML `xml:"PropertyGroup"`
+	ItemGroups     []itemGroupXML     `xml:"ItemGroup"`
 }
 
-type itemGroupXml struct {
-	PackageReference []packageReferenceXml `xml:"PackageReference"`
-	ProjectReference []projectReferenceXml `xml:"ProjectReference"`
+type itemGroupXML struct {
+	PackageReference []packageReferenceXML `xml:"PackageReference"`
+	ProjectReference []projectReferenceXML `xml:"ProjectReference"`
 }
 
-type packageReferenceXml struct {
+type packageReferenceXML struct {
 	Include     string `xml:"Include,attr"`
 	Version     string `xml:"Version,attr"`
 	VersionElem string `xml:"Version"`
 }
 
-type projectReferenceXml struct {
+type projectReferenceXML struct {
 	Include string `xml:"Include,attr"`
 }
 
-type propertyGroupXml struct{ TargetFramework, OutputType, AssemblyName string }
+type propertyGroupXML struct{ TargetFramework, OutputType, AssemblyName string }
 
+// Project represents a .NET project (.csproj) and its direct project and package references.
 type Project struct {
 	RootPath          string
 	Path              string
@@ -44,27 +46,27 @@ type Project struct {
 	PackageReferences []PackageReference
 }
 
+// GetFileName returns the file name (e.g. MyApp.csproj).
 func (p Project) GetFileName() string { return filepath.Base(p.Path) }
-func (p Project) GetName() string     { return strings.TrimSuffix(p.GetFileName(), ".csproj") }
+
+// GetName returns the project name without extension.
+func (p Project) GetName() string { return strings.TrimSuffix(p.GetFileName(), ".csproj") }
+
+// GetRelativePath returns the path relative to the repository root.
 func (p Project) GetRelativePath() string {
-	result := p.Path
-	if strings.HasPrefix(result, p.RootPath) {
-		result = result[len(p.RootPath):]
-	}
-	result = strings.TrimPrefix(result, "/")
-	return result
+	return strings.TrimPrefix(strings.TrimPrefix(p.Path, p.RootPath), "/")
 }
+
+// GetDirectoryRelativePath returns the containing directory relative path with trailing slash.
 func (p Project) GetDirectoryRelativePath() string {
-	result := filepath.Dir(p.Path)
-	if strings.HasPrefix(result, p.RootPath) {
-		result = result[len(p.RootPath):]
-	}
-	result = strings.TrimPrefix(result, "/")
+	result := strings.TrimPrefix(strings.TrimPrefix(filepath.Dir(p.Path), p.RootPath), "/")
 	if !strings.HasSuffix(result, "/") {
 		result += "/"
 	}
 	return result
 }
+
+// GetAllProjectReferences returns a flattened, de-duplicated list of all transitively referenced projects including the root.
 func (p Project) GetAllProjectReferences() []Project {
 	var result []Project
 	seen := map[string]bool{}
@@ -83,8 +85,11 @@ func (p Project) GetAllProjectReferences() []Project {
 	sort.Slice(result, func(i, j int) bool { return result[i].Path < result[j].Path })
 	return result
 }
+
+// GetProjectReferences returns the direct project references.
 func (p Project) GetProjectReferences() []Project { return p.ProjectReferences }
 
+// PackageReference represents a NuGet package reference (Include + Version).
 type PackageReference struct{ Include, Version string }
 
 var (
@@ -98,7 +103,17 @@ func innerLoadProject(path string, isMain bool, rootPath string, pathLoaded []st
 			return Project{}, errCircularRef
 		}
 	}
-	file, err := os.Open(path)
+	file, err := func(p string) (*os.File, error) {
+		// Constrain project file to be within rootPath to mitigate G304 concerns.
+		if rootPath != "" {
+			absRoot, _ := filepath.Abs(rootPath)
+			absPath, _ := filepath.Abs(p)
+			if !strings.HasPrefix(absPath, absRoot) {
+				return nil, fmt.Errorf("project file outside root: %s", p)
+			}
+		}
+		return os.Open(p) // #nosec G304 - validated above
+	}(path)
 	if err != nil {
 		if !isMain {
 			slog.Warn("Cannot open file. Skipped", "path", path, "err", err)
@@ -106,21 +121,21 @@ func innerLoadProject(path string, isMain bool, rootPath string, pathLoaded []st
 		}
 		return Project{}, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	data, err := io.ReadAll(file)
 	if err != nil {
 		return Project{}, err
 	}
-	var px projectXml
+	var px projectXML
 	if err = xml.Unmarshal(data, &px); err != nil {
 		return Project{}, err
 	}
 	projectReferences := util.SelectMany(util.Where(px.ItemGroups,
-		func(ig itemGroupXml) bool { return len(ig.ProjectReference) > 0 }),
-		func(ig itemGroupXml) []projectReferenceXml { return ig.ProjectReference })
+		func(ig itemGroupXML) bool { return len(ig.ProjectReference) > 0 }),
+		func(ig itemGroupXML) []projectReferenceXML { return ig.ProjectReference })
 	var references []Project
 	for _, pr := range projectReferences {
-		childPath := strings.Replace(pr.Include, "\\", "/", -1)
+		childPath := strings.ReplaceAll(pr.Include, "\\", "/")
 		childPath = filepath.Join(filepath.Dir(path), childPath)
 		child, prjErr := innerLoadProject(childPath, false, rootPath, append(pathLoaded, path))
 		if prjErr != nil {
@@ -132,8 +147,8 @@ func innerLoadProject(path string, isMain bool, rootPath string, pathLoaded []st
 		references = append(references, child)
 	}
 	packageReferences := util.SelectMany(util.Where(px.ItemGroups,
-		func(ig itemGroupXml) bool { return len(ig.PackageReference) > 0 }),
-		func(ig itemGroupXml) []packageReferenceXml { return ig.PackageReference })
+		func(ig itemGroupXML) bool { return len(ig.PackageReference) > 0 }),
+		func(ig itemGroupXML) []packageReferenceXML { return ig.PackageReference })
 	var packages []PackageReference
 	for _, pr := range packageReferences {
 		v := pr.Version
@@ -145,6 +160,7 @@ func innerLoadProject(path string, isMain bool, rootPath string, pathLoaded []st
 	return Project{RootPath: rootPath, Path: path, ProjectReferences: references, PackageReferences: packages}, nil
 }
 
+// LoadProject loads a root .csproj and recursively its transitive project references.
 func LoadProject(path, rootPath string) (Project, error) {
 	return innerLoadProject(path, true, rootPath, []string{})
 }

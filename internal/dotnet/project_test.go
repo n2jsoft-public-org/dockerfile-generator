@@ -22,10 +22,10 @@ const baseCsproj = `<?xml version="1.0" encoding="utf-8"?>
 
 func write(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 }
@@ -91,17 +91,17 @@ func TestLoadProject_CircularReference(t *testing.T) {
 	}
 }
 
-func replace(s, old, new string) string { return stringReplaceAll(s, old, new) }
+func replace(s, old, newVal string) string { return stringReplaceAll(s, old, newVal) }
 
 // minimal replace to avoid importing strings again (keep imports light)
-func stringReplaceAll(s, old, new string) string {
+func stringReplaceAll(s, old, newVal string) string {
 	if old == "" {
 		return s
 	}
 	out := make([]byte, 0, len(s))
 	for i := 0; i < len(s); {
 		if len(s)-i >= len(old) && s[i:i+len(old)] == old {
-			out = append(out, new...)
+			out = append(out, newVal...)
 			i += len(old)
 		} else {
 			out = append(out, s[i])

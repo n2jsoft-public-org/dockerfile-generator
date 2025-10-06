@@ -10,7 +10,7 @@ func TestLoadConfig(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, DefaultDockerBuildFileName)
 	content := "language: go\nbase:\n  image: alpine:3.20\n  packages:\n    - ca-certificates\nbase-build:\n  image: golang:1.23-alpine\n  packages:\n    - build-base\n"
-	if err := os.WriteFile(file, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	cfg, err := Load(file)

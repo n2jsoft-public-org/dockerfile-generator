@@ -13,7 +13,7 @@ func TestGoGenerator_ConfigOverrides(t *testing.T) {
 	g := GoGenerator{}
 	dir := t.TempDir()
 	mod := "module example.com/app\n\ngo 1.23"
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(mod), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(mod), 0o600); err != nil {
 		t.Fatalf("write mod: %v", err)
 	}
 	proj, additional, err := g.Load(dir, dir)
@@ -31,13 +31,12 @@ func TestGoGenerator_ConfigOverrides(t *testing.T) {
 	if err := g.GenerateDockerfile(proj, nil, dest, cfg); err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	data, _ := os.ReadFile(dest)
+	data, _ := os.ReadFile(dest) // #nosec G304 - test reading generated file
 	content := string(data)
 	if !strings.Contains(content, "golang:1.24-alpine") || !strings.Contains(content, "alpine:3.20") {
 		t.Fatalf("expected overridden images, got: %s", content)
 	}
-	if !(strings.Contains(content, "ca-certificates") || strings.Contains(content,
-		"ca-certificates")) { // redundant OR for safety
+	if !strings.Contains(content, "ca-certificates") { // simplified
 		t.Fatalf("expected runtime package in Dockerfile: %s", content)
 	}
 	// build-base should NOT appear (current template ignores build-stage packages)
@@ -50,12 +49,33 @@ func TestGoGenerator_DetectFileVsDir(t *testing.T) {
 	g := GoGenerator{}
 	dir := t.TempDir()
 	modPath := filepath.Join(dir, "go.mod")
-	if err := os.WriteFile(modPath, []byte("module m\n\ngo 1.23"), 0o644); err != nil {
+	if err := os.WriteFile(modPath, []byte("module m\n\ngo 1.23"), 0o600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	okDir, _ := g.Detect(dir)
 	okFile, _ := g.Detect(modPath)
 	if !okDir || !okFile {
 		t.Fatalf("expected detect true for both dir and file")
+	}
+}
+
+func TestGoGenerator_LoadInvalidPath(t *testing.T) {
+	g := GoGenerator{}
+	dir := t.TempDir()
+	badFile := filepath.Join(dir, "not_a_go_file.txt")
+	if err := os.WriteFile(badFile, []byte("hello"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if _, _, err := g.Load(badFile, dir); err == nil {
+		t.Fatalf("expected error for invalid file path")
+	}
+}
+
+func TestGoGenerator_GenerateInvalidProjectType(t *testing.T) {
+	g := GoGenerator{}
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "Dockerfile")
+	if err := g.GenerateDockerfile(struct{}{}, nil, dest, config.Default()); err == nil {
+		t.Fatalf("expected error for invalid project type")
 	}
 }

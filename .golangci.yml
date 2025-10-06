@@ -1,0 +1,16 @@
+version: "2"
+run:
+  timeout: 5m
+  tests: true
+linters:
+  enable:
+    - govet
+    - revive
+    - gocyclo
+    - goconst
+    - staticcheck
+    - ineffassign
+    - unconvert
+    - misspell
+    - errcheck
+    - gosec

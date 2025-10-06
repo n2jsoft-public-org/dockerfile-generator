@@ -3,6 +3,7 @@ package dotnet
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/generator"
 )
 
+// TemplateContext is the data model used to render the dotnet Dockerfile template.
 type TemplateContext struct {
 	AdditionalFilePaths []common.AdditionalFilePath
 	Project             Project
@@ -21,10 +23,15 @@ type TemplateContext struct {
 	BaseSdkImage        string
 }
 
+// DotnetGenerator implements generator.Generator for .NET projects.
+//
+//revive:disable-next-line:exported
 type DotnetGenerator struct{}
 
+// Name returns the canonical language key for this generator.
 func (d DotnetGenerator) Name() string { return config.LanguageDotnet }
 
+// Detect returns true if the provided path looks like a single .csproj or a directory containing exactly one .csproj.
 func (d DotnetGenerator) Detect(path string) (bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -48,6 +55,7 @@ func (d DotnetGenerator) Detect(path string) (bool, error) {
 	return false, nil
 }
 
+// Load resolves the target project (or the single .csproj inside the directory) and returns the project graph + additional context files.
 func (d DotnetGenerator) Load(projectPath, repoRoot string) (
 	generator.ProjectData,
 	[]common.AdditionalFilePath,
@@ -67,21 +75,27 @@ func (d DotnetGenerator) Load(projectPath, repoRoot string) (
 			return nil, nil, fmt.Errorf("multiple .csproj found; specify one explicitly")
 		}
 		p = matches[0]
+		slog.Debug("resolved single project file in directory", "dir", projectPath, "file", p)
 	}
 	if !strings.HasSuffix(strings.ToLower(p), ".csproj") {
 		return nil, nil, errors.New("path must be a .csproj file for dotnet")
 	}
+	slog.Debug("loading dotnet project", "path", p, "repoRoot", repoRoot)
 	proj, err := LoadProject(p, repoRoot)
 	if err != nil {
 		return nil, nil, err
 	}
+	references := proj.GetAllProjectReferences()
+	slog.Debug("project graph loaded", "root", proj.Path, "projects", len(references))
 	additional, err := LoadProjectContextFromProject(proj, repoRoot)
 	if err != nil {
 		return nil, nil, err
 	}
+	slog.Debug("additional context files discovered", "count", len(additional))
 	return proj, additional, nil
 }
 
+// GenerateDockerfile renders the Dockerfile into dest using the discovered project + configuration.
 func (d DotnetGenerator) GenerateDockerfile(
 	project generator.ProjectData,
 	additional []common.AdditionalFilePath,
@@ -103,24 +117,29 @@ func (d DotnetGenerator) GenerateDockerfile(
 	} else {
 		baseSdkImage = cfg.BaseBuild.Image
 	}
+	slog.Debug("dotnet image selection", "runtime", baseImage, "sdk", baseSdkImage, "additionalFiles", len(additional))
 
-	// Choose template (could allow override later)
 	tmpl, err := template.New("dotnet-dockerfile").Parse(defaultTemplate)
 	if err != nil {
 		return err
 	}
-	f, err := os.Create(dest)
+	f, err := os.Create(dest) // #nosec G304 - destination path intentionally created in working directory
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	return tmpl.Execute(f, TemplateContext{
+	// Execute then close explicitly to surface close errors (errcheck compliance).
+	execErr := tmpl.Execute(f, TemplateContext{
 		AdditionalFilePaths: additional,
 		Project:             proj,
 		Config:              cfg,
 		BaseImage:           baseImage,
 		BaseSdkImage:        baseSdkImage,
 	})
+	closeErr := f.Close()
+	if execErr != nil {
+		return execErr
+	}
+	return closeErr
 }
 
 func init() { generator.Register(DotnetGenerator{}) }

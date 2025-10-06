@@ -2,9 +2,11 @@ package unidiff
 
 import "testing"
 
+const line1 = "line1\n"
+
 func TestUnified_Addition(t *testing.T) {
-	oldText := "line1\n"
-	newText := "line1\nline2\n"
+	oldText := line1
+	newText := line1 + "line2\n"
 	diff := Unified(oldText, newText, "Dockerfile")
 	if !containsAll(diff, []string{"--- Dockerfile (old)", "+++ Dockerfile (new)", "+line2"}) {
 		t.Fatalf("diff missing expected additions:\n%s", diff)
@@ -12,8 +14,8 @@ func TestUnified_Addition(t *testing.T) {
 }
 
 func TestUnified_Deletion(t *testing.T) {
-	oldText := "line1\nline2\n"
-	newText := "line1\n"
+	oldText := line1 + "line2\n"
+	newText := line1
 	diff := Unified(oldText, newText, "Dockerfile")
 	if !containsAll(diff, []string{"-line2"}) {
 		t.Fatalf("diff missing deletion: %s", diff)
@@ -31,7 +33,7 @@ func TestUnified_Modification(t *testing.T) {
 
 func TestUnified_EmptyOld(t *testing.T) {
 	oldText := ""
-	newText := "line1\n"
+	newText := line1
 	diff := Unified(oldText, newText, "f")
 	if !containsAll(diff, []string{"+line1"}) {
 		t.Fatalf("expected addition in empty-old case: %s", diff)

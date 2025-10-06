@@ -34,3 +34,5 @@ go.work.sum
 # Local dev/test binaries
 ddg
 dotnet-dockerfile-gen
+dist/
+bin/

@@ -1,8 +1,10 @@
+// Package golang implements Dockerfile generation logic for Go projects.
 package golang
 
 import (
 	_ "embed"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,12 +18,14 @@ import (
 //go:embed dockerfile.tmpl
 var goTemplate string
 
+// GoProject describes a Go module root (directory containing go.mod).
 type GoProject struct {
 	RootPath string
 	Path     string // directory containing go.mod
 	Name     string
 }
 
+// goTemplateContext is the template data for Go Dockerfile generation.
 type goTemplateContext struct {
 	Project         GoProject
 	Config          config.Config
@@ -31,10 +35,13 @@ type goTemplateContext struct {
 	RuntimePackages []string
 }
 
+// GoGenerator implements generator.Generator for Go projects.
 type GoGenerator struct{}
 
+// Name returns the language key for Go.
 func (g GoGenerator) Name() string { return config.LanguageGo }
 
+// Detect returns true if path is a directory containing go.mod or a go.mod file.
 func (g GoGenerator) Detect(path string) (bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -42,14 +49,20 @@ func (g GoGenerator) Detect(path string) (bool, error) {
 	}
 	if info.IsDir() {
 		_, err = os.Stat(filepath.Join(path, "go.mod"))
-		return err == nil, nil
+		if err == nil {
+			slog.Debug("go project detected (directory contains go.mod)", "path", path)
+			return true, nil
+		}
+		return false, nil
 	}
 	if strings.HasSuffix(path, "go.mod") {
+		slog.Debug("go project detected (go.mod file)", "path", path)
 		return true, nil
 	}
 	return false, nil
 }
 
+// Load gathers basic module information and returns a GoProject.
 func (g GoGenerator) Load(projectPath, repoRoot string) (generator.ProjectData, []common.AdditionalFilePath, error) {
 	p := projectPath
 	info, err := os.Stat(p)
@@ -62,23 +75,28 @@ func (g GoGenerator) Load(projectPath, repoRoot string) (generator.ProjectData, 
 	if !info.IsDir() {
 		p = filepath.Dir(p)
 	}
-	modData, err := os.ReadFile(filepath.Join(p, "go.mod"))
+	modPath := filepath.Join(p, "go.mod")
+	// #nosec G304 - path is derived from user-provided value and constrained to directory + 'go.mod'.
+	modData, err := os.ReadFile(modPath)
 	if err != nil {
 		return nil, nil, err
 	}
-	// parse module line
+	slog.Debug("reading go module file", "path", modPath, "bytes", len(modData))
 	name := filepath.Base(p)
-	lines := strings.Split(string(modData), "\n")
-	for _, l := range lines {
+	for _, l := range strings.Split(string(modData), "\n") {
 		l = strings.TrimSpace(l)
 		if strings.HasPrefix(l, "module ") {
-			name = filepath.Base(strings.TrimSpace(strings.TrimPrefix(l, "module ")))
+			parsed := filepath.Base(strings.TrimSpace(strings.TrimPrefix(l, "module ")))
+			name = parsed
+			slog.Debug("parsed module name", "module", parsed)
 		}
 	}
 	proj := GoProject{RootPath: repoRoot, Path: p, Name: name}
+	slog.Debug("go project loaded", "module", name, "path", p)
 	return proj, nil, nil
 }
 
+// GenerateDockerfile produces a Dockerfile at dest for the given project.
 func (g GoGenerator) GenerateDockerfile(
 	project generator.ProjectData,
 	additional []common.AdditionalFilePath,
@@ -96,6 +114,7 @@ func (g GoGenerator) GenerateDockerfile(
 	if cfg.Base.Image != "" {
 		runtimeImage = cfg.Base.Image
 	}
+	slog.Debug("go image selection", "build", buildImage, "runtime", runtimeImage, "additionalFiles", len(additional))
 	ctx := goTemplateContext{
 		Project: proj, Config: cfg, BuildImage: buildImage, RuntimeImage: runtimeImage,
 		BuildPackages: cfg.BaseBuild.Packages, RuntimePackages: cfg.Base.Packages,
@@ -104,12 +123,16 @@ func (g GoGenerator) GenerateDockerfile(
 	if err != nil {
 		return err
 	}
-	f, err := os.Create(dest)
+	f, err := os.Create(dest) // #nosec G304 - controlled output path
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	return tmpl.Execute(f, ctx)
+	execErr := tmpl.Execute(f, ctx)
+	closeErr := f.Close()
+	if execErr != nil {
+		return execErr
+	}
+	return closeErr
 }
 
 func init() { generator.Register(GoGenerator{}) }

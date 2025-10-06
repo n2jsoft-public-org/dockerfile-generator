@@ -24,6 +24,7 @@
 - [Autodetection Logic](#-autodetection-logic)
 - [Version Output](#-version-flag)
 - [Troubleshooting](#-troubleshooting)
+- [Development](#-development)
 - [Roadmap](#-roadmap--ideas)
 - [Contributing](#-contributing)
 - [License](#-license)
@@ -49,6 +50,7 @@ Building Docker images often wastes time by copying the full source tree before 
 - 📦 Automatic inclusion of shared files: `nuget.config`, `Directory.Build.props`, `Directory.Packages.props`.
 - 🧾 YAML config (`.dockerbuild`) to override base/build images + `apk` package install lists.
 - 🧪 Dry-run mode with unified diff output.
+- 🐞 Optional verbose diagnostic logging (`--verbose`) showing detection & generation decisions (logs to stderr, leaving stdout clean).
 - 🪄 Cache-friendly layering for both ecosystems.
 - 🧱 Go builds use mount caches for modules & build output.
 
@@ -58,7 +60,7 @@ Building Docker images often wastes time by copying the full source tree before 
 With Go installed (1.21+ recommended, built with 1.25 target):
 
 ```bash
-go install github.com/n2jsoft-public-org/dotnet-dockerfile-generator@latest
+go install github.com/n2jsoft-public-org/dockerfile-generator@latest
 ```
 
 Or build locally:
@@ -68,14 +70,14 @@ cd dotnet-dockerfile-gen
 go build -o dockerfile-gen ./...
 ```
 
-> Note: The module path is `github.com/n2jsoft-public-org/dotnet-dockerfile-generator`. If your fork or repo name differs (e.g. `dotnet-dockerfile-gen`), adjust accordingly.
+> Note: The module path is `github.com/n2jsoft-public-org/dockerfile-generator`. If your fork or repo name differs (e.g. `dotnet-dockerfile-gen`), adjust accordingly.
 
 ---
 
 ## 🧪 CLI Usage
 General form:
 ```
-dockerfile-gen --path <project-or-dir> [--language dotnet|go] [--dockerfile Dockerfile] [--dry-run]
+dockerfile-gen --path <project-or-dir> [--language dotnet|go] [--dockerfile Dockerfile] [--dry-run] [--verbose]
 ```
 Short flags: `-p`, `-l`, `-f`, `-d`. Version: `-v` / `-V`.
 Legacy (deprecated): single-dash long forms (`-path`, `-language`, ...).
@@ -88,6 +90,7 @@ Legacy (deprecated): single-dash long forms (`-path`, `-language`, ...).
 - `-f, --dockerfile` (optional): Output file name (default `Dockerfile`).
 - `-d, --dry-run` (optional): Generate to temp & print unified diff vs existing file (no write).
 - `-v, -V, --version` (optional): Print version metadata.
+- `--verbose` (optional): Enable debug logging (prints detection, config, and output path decisions to stderr; safe for piping stdout to files or other tools).
 
 ### Exit Codes
 - `0` ✅ success
@@ -115,6 +118,10 @@ dockerfile-gen -p ./service
 ### Go module with output name
 ```bash
 dockerfile-gen -p ./service -l go -f Dockerfile.service
+```
+### Verbose diagnostics (stderr logging)
+```bash
+dockerfile-gen -p ./service --verbose
 ```
 
 ### With a config file
@@ -229,18 +236,41 @@ Outputs:
 | Multiple `.csproj` in directory | Specify a single file path. |
 | Permissions / user mismatch | Provide `APP_UID` in build args or remove `USER $APP_UID` line after generation. |
 | Private NuGet feeds | Provide `NuGetPackageSourceToken_gh` build arg; adapt template if feed name differs. |
+| Need more insight into what the tool is doing | Re-run with `--verbose` to see detection & config decisions. |
 
 ---
 
-## 🗺 Roadmap / Ideas
-- ✅ Multi-language core
-- ⏳ Tests for generators
-- ⏳ `.sln` file root support
-- ⏳ Language-specific config extensions
-- ⏳ Automatic `.dockerignore` suggestion
-- 🔮 New languages (Node.js, Python, etc.) via pluggable generators
+## 🛠 Development
+A `Makefile` is provided to streamline local workflows (linting, testing, releasing, Docker build).
 
-Have a suggestion? Open an issue or PR! 📨
+Common targets:
+
+| Target | Description |
+|--------|-------------|
+| `make lint` | Run `golangci-lint` (auto-installs pinned version into `./bin`). |
+| `make test` | Run tests with race detector + coverage profile. |
+| `make coverage` | Run tests (if needed) and enforce coverage threshold (`COVERAGE_MIN`, default 60%). |
+| `make build` | Build the CLI binary into `./bin/dockerfile-gen`. |
+| `make snapshot` | Run GoReleaser in snapshot mode (no publish). |
+| `make release` | Full GoReleaser release (requires tag + `GITHUB_TOKEN`). |
+| `make docker` | Build a local Docker image `dockerfile-gen:dev`. |
+| `make tidy` | Ensure `go.mod` / `go.sum` are tidy. |
+| `make ci` | Run `lint` then `test` (approximate CI pipeline). |
+| `make clean` | Remove build artifacts (`bin/`, `dist/`, coverage file). |
+
+Environment overrides:
+- `GOLANGCI_LINT_VERSION` to pin a different golangci-lint version.
+- `COVERAGE_MIN` to raise/lower the required coverage percentage.
+- `VERSION` for custom build version (defaults to `dev`).
+
+Example:
+```bash
+make lint
+make test COVERAGE_MIN=70
+make build VERSION=$(git describe --tags --always)
+```
+
+> Tip: Run `make help` to list available targets.
 
 ---
 

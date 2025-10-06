@@ -11,8 +11,8 @@ import (
 func TestDotnetGenerator_MultipleCsprojError(t *testing.T) {
 	g := DotnetGenerator{}
 	dir := t.TempDir()
-	_ = os.WriteFile(filepath.Join(dir, "A.csproj"), []byte("<Project></Project>"), 0o644)
-	_ = os.WriteFile(filepath.Join(dir, "B.csproj"), []byte("<Project></Project>"), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "A.csproj"), []byte("<Project></Project>"), 0o600)
+	_ = os.WriteFile(filepath.Join(dir, "B.csproj"), []byte("<Project></Project>"), 0o600)
 	_, _, err := g.Load(dir, dir)
 	if err == nil {
 		t.Fatalf("expected error for multiple csproj files")
@@ -25,7 +25,7 @@ func TestDotnetGenerator_GenerateDefaultImages(t *testing.T) {
 	projPath := filepath.Join(dir, "App.csproj")
 	if err := os.WriteFile(projPath,
 		[]byte(`<?xml version="1.0"?><Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net9.0</TargetFramework></PropertyGroup></Project>`),
-		0o644); err != nil {
+		0o600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	proj, additional, err := g.Load(projPath, dir)
@@ -36,7 +36,7 @@ func TestDotnetGenerator_GenerateDefaultImages(t *testing.T) {
 	if err := g.GenerateDockerfile(proj, additional, dest, config.Default()); err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	data, _ := os.ReadFile(dest)
+	data, _ := os.ReadFile(dest) // #nosec G304 - test reading generated file path
 	content := string(data)
 	if !contains(content, "mcr.microsoft.com/dotnet/aspnet:${TARGET_DOTNET_VERSION}") {
 		// don't assert SDK image since code may evolve
@@ -50,7 +50,7 @@ func TestDotnetGenerator_ConfigOverrides(t *testing.T) {
 	projPath := filepath.Join(dir, "App.csproj")
 	if err := os.WriteFile(projPath,
 		[]byte(`<?xml version="1.0"?><Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net9.0</TargetFramework></PropertyGroup></Project>`),
-		0o644); err != nil {
+		0o600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	proj, additional, err := g.Load(projPath, dir)
@@ -64,7 +64,7 @@ func TestDotnetGenerator_ConfigOverrides(t *testing.T) {
 	if err := g.GenerateDockerfile(proj, additional, dest, cfg); err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	data, _ := os.ReadFile(dest)
+	data, _ := os.ReadFile(dest) // #nosec G304 - test reading generated file path
 	content := string(data)
 	if !contains(content, "FROM customruntime:1 AS base") || !contains(content, "FROM customsdk:1 AS base_build") {
 		t.Fatalf("expected override images present, got: %s", content)

@@ -1,0 +1,16 @@
+services:
+  cli:
+    # Build the minimal scratch-based image (default target 'runtime')
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-none}
+        DATE: ${DATE:-unknown}
+    image: dockerfile-gen:${VERSION:-dev}
+    volumes:
+      - .:/src
+    # Override the default CMD if desired:
+    # command: ["--help"]

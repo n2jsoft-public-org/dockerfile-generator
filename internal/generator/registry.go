@@ -1,3 +1,4 @@
+// Package generator defines the extensible registry and interfaces for language-specific Dockerfile generators.
 package generator
 
 import (

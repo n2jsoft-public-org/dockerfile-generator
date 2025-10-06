@@ -9,22 +9,22 @@ import (
 func TestLoadProjectContextFromProject(t *testing.T) {
 	root := t.TempDir()
 	// Simulate repo root marker
-	_ = os.Mkdir(filepath.Join(root, ".git"), 0o755)
+	_ = os.Mkdir(filepath.Join(root, ".git"), 0o750)
 	// Create context files
 	writeFile := func(p string) {
-		if err := os.WriteFile(p, []byte("x"), 0o644); err != nil {
+		if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
 			t.Fatalf("write: %v", err)
 		}
 	}
 	writeFile(filepath.Join(root, "nuget.config"))
 	writeFile(filepath.Join(root, "Directory.Build.props"))
 	sub := filepath.Join(root, "src", "App")
-	if err := os.MkdirAll(sub, 0o755); err != nil {
+	if err := os.MkdirAll(sub, 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	projPath := filepath.Join(sub, "App.csproj")
 	projContent := `<?xml version="1.0"?><Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net9.0</TargetFramework></PropertyGroup></Project>`
-	if err := os.WriteFile(projPath, []byte(projContent), 0o644); err != nil {
+	if err := os.WriteFile(projPath, []byte(projContent), 0o600); err != nil {
 		t.Fatalf("write proj: %v", err)
 	}
 	proj, err := LoadProject(projPath, root)

@@ -1,0 +1,33 @@
+# Exclude VCS and build artifacts
+.git
+.gitignore
+.github/
+.idea/
+.vscode/
+*.swp
+*~
+
+# Go build caches / artifacts
+bin/
+.out/
+/dist/
+/build/
+coverage*
+*.cov
+
+# Module download cache (not needed in context)
+/go/pkg/mod
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+
+# Tests (optional: include if generation logic depends on them; usually not needed)
+**/*_test.go
+
+# Local Docker related
+Dockerfile.local
+
+# Misc
+node_modules/
+
