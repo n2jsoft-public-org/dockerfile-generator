@@ -19,6 +19,8 @@ jobs:
   lint:
     name: Lint (golangci-lint)
     runs-on: ubuntu-latest
+    env:
+      GOLANGCI_LINT_VERSION: v2.5.0
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,12 +29,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
-          cache: true
+            go-version-file: go.mod
+            cache: true
       - name: Install golangci-lint (from source)
         run: |
           set -euo pipefail
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          echo "Installing golangci-lint ${GOLANGCI_LINT_VERSION}..."
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint/v2@${GOLANGCI_LINT_VERSION}
           golangci-lint version
       - name: Run golangci-lint
         run: golangci-lint run --timeout=5m
