@@ -53,13 +53,10 @@ func translateLegacyLongFlags(args []string) []string {
 	return out
 }
 
-func main() {
-	// Backward compatibility: adjust os.Args so cobra can parse old single-dash long flags.
-	if len(os.Args) > 1 {
-		translated := translateLegacyLongFlags(os.Args[1:])
-		os.Args = append([]string{os.Args[0]}, translated...)
-	}
-
+// newRootCmd builds the root cobra command (extracted for testability).
+//
+//go:noinline
+func newRootCmd() *cobra.Command {
 	var projectPath string
 	var dockerfileName string
 	var language string
@@ -69,10 +66,9 @@ func main() {
 	var verbose bool
 
 	rootCmd := &cobra.Command{
-		Use:   "dockerfile-gen",
-		Short: "Generate optimized multi-stage Dockerfiles for .NET and Go projects",
-		Long: `dockerfile-gen generates multi-stage Dockerfiles optimized for build caching.
-It supports autodetection of project type (.csproj / go.mod) or explicit language selection.`,
+		Use:           "dockerfile-gen",
+		Short:         "Generate optimized multi-stage Dockerfiles for .NET and Go projects",
+		Long:          `dockerfile-gen generates multi-stage Dockerfiles optimized for build caching.\nIt supports autodetection of project type (.csproj / go.mod) or explicit language selection.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRun: func(_ *cobra.Command, _ []string) {
@@ -230,7 +226,16 @@ It supports autodetection of project type (.csproj / go.mod) or explicit languag
   dockerfile-gen -v
   dockerfile-gen -p ./service --verbose`
 
-	if err := rootCmd.Execute(); err != nil {
+	return rootCmd
+}
+
+func main() {
+	// Backward compatibility: adjust os.Args so cobra can parse old single-dash long flags.
+	if len(os.Args) > 1 {
+		translated := translateLegacyLongFlags(os.Args[1:])
+		os.Args = append([]string{os.Args[0]}, translated...)
+	}
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		Errorf("command failed: %v", err)
 		os.Exit(1)

@@ -58,3 +58,24 @@ func TestGoGenerator_DetectFileVsDir(t *testing.T) {
 		t.Fatalf("expected detect true for both dir and file")
 	}
 }
+
+func TestGoGenerator_LoadInvalidPath(t *testing.T) {
+	g := GoGenerator{}
+	dir := t.TempDir()
+	badFile := filepath.Join(dir, "not_a_go_file.txt")
+	if err := os.WriteFile(badFile, []byte("hello"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if _, _, err := g.Load(badFile, dir); err == nil {
+		t.Fatalf("expected error for invalid file path")
+	}
+}
+
+func TestGoGenerator_GenerateInvalidProjectType(t *testing.T) {
+	g := GoGenerator{}
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "Dockerfile")
+	if err := g.GenerateDockerfile(struct{}{}, nil, dest, config.Default()); err == nil {
+		t.Fatalf("expected error for invalid project type")
+	}
+}
