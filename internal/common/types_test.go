@@ -1,3 +1,4 @@
+// revive:disable:var-naming - package name 'common' is intentional for shared types used by multiple packages.
 package common
 
 import "testing"

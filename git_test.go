@@ -9,11 +9,11 @@ import (
 func TestHasGitDirAndFindRepositoryRoot(t *testing.T) {
 	tdir := t.TempDir()
 	gitDir := filepath.Join(tdir, ".git")
-	if err := os.Mkdir(gitDir, 0o755); err != nil {
+	if err := os.Mkdir(gitDir, 0o750); err != nil {
 		t.Fatalf("mkdir git: %v", err)
 	}
 	deep := filepath.Join(tdir, "a", "b", "c")
-	if err := os.MkdirAll(deep, 0o755); err != nil {
+	if err := os.MkdirAll(deep, 0o750); err != nil {
 		t.Fatalf("mkdir deep: %v", err)
 	}
 

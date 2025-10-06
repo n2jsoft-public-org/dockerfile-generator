@@ -1,5 +1,6 @@
 // Package util provides small generic helper functions (Where, SelectMany) used internally.
-// revive:disable:var-naming - 'util' is a conventional short package name accepted here.
+//
+//revive:disable:var-naming - 'util' is a conventional short package name accepted here.
 package util
 
 // Where filters arr returning elements for which predicate f returns true.

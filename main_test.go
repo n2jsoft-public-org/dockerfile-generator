@@ -37,7 +37,7 @@ func TestTranslateLegacyLongFlags(t *testing.T) {
 	}
 }
 
-func captureStdout(t *testing.T, fn func()) string {
+func captureStdout(_ *testing.T, fn func()) string { // underscore for unused param (revive)
 	old := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
@@ -93,7 +93,7 @@ func TestRootCmd_ProjectNotFound(t *testing.T) {
 func TestRootCmd_UnsupportedLanguage(t *testing.T) {
 	dir := t.TempDir()
 	// simulate repo root
-	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o750); err != nil {
 		t.Fatalf("mkdir git: %v", err)
 	}
 	// create minimal go.mod to avoid detection auto override
@@ -110,7 +110,7 @@ func TestRootCmd_UnsupportedLanguage(t *testing.T) {
 
 func TestRootCmd_DryRunNoChange(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o750); err != nil {
 		t.Fatalf("mkdir git: %v", err)
 	}
 	goMod := "module example.com/app\n\ngo 1.23\n"
@@ -141,7 +141,7 @@ func TestRootCmd_DryRunNoChange(t *testing.T) {
 
 func TestRootCmd_DryRunWithChanges(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o750); err != nil {
 		t.Fatalf("mkdir git: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/app\n\ngo 1.23\n"),
@@ -166,7 +166,7 @@ func TestRootCmd_DryRunWithChanges(t *testing.T) {
 
 func TestRootCmd_ConfigLanguage(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o750); err != nil {
 		t.Fatalf("mkdir git: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/app\n\ngo 1.23\n"),
@@ -192,7 +192,7 @@ func TestRootCmd_ConfigLanguage(t *testing.T) {
 
 func TestRootCmd_SuccessGoGenerate(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o750); err != nil {
 		t.Fatalf("mkdir git: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/app\n\ngo 1.23\n"),
@@ -216,7 +216,7 @@ func TestRootCmd_SuccessGoGenerate(t *testing.T) {
 
 func TestRootCmd_InvalidConfigWarning(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o750); err != nil {
 		t.Fatalf("mkdir git: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/app\n\ngo 1.23\n"),
@@ -249,6 +249,7 @@ func TestRootCmd_NoGitRootError(t *testing.T) {
 }
 
 func TestLogWrappers(t *testing.T) {
+	t.Helper() // use t to satisfy revive unused-parameter
 	logger = slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	Debugf("debug test %d", 1)
 	Infof("info test %s", "x")

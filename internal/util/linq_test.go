@@ -1,3 +1,4 @@
+//revive:disable:var-naming - package name 'util' acceptable here (internal utilities)
 package util
 
 import "testing"
@@ -22,8 +23,8 @@ func TestWhereBasic(t *testing.T) {
 }
 
 func TestWhereEmptyInput(t *testing.T) {
-	var empty []string // nil slice
-	res := Where(empty, func(s string) bool { return true })
+	var empty []string                                       // nil slice
+	res := Where(empty, func(_ string) bool { return true }) // rename param to _
 	if len(res) != 0 {
 		t.Fatalf("expected empty result for nil input: %#v", res)
 	}
