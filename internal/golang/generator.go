@@ -3,6 +3,7 @@ package golang
 import (
 	_ "embed"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,9 +43,14 @@ func (g GoGenerator) Detect(path string) (bool, error) {
 	}
 	if info.IsDir() {
 		_, err = os.Stat(filepath.Join(path, "go.mod"))
-		return err == nil, nil
+		if err == nil {
+			slog.Debug("go project detected (directory contains go.mod)", "path", path)
+			return true, nil
+		}
+		return false, nil
 	}
 	if strings.HasSuffix(path, "go.mod") {
+		slog.Debug("go project detected (go.mod file)", "path", path)
 		return true, nil
 	}
 	return false, nil
@@ -62,20 +68,25 @@ func (g GoGenerator) Load(projectPath, repoRoot string) (generator.ProjectData, 
 	if !info.IsDir() {
 		p = filepath.Dir(p)
 	}
-	modData, err := os.ReadFile(filepath.Join(p, "go.mod"))
+	modPath := filepath.Join(p, "go.mod")
+	modData, err := os.ReadFile(modPath)
 	if err != nil {
 		return nil, nil, err
 	}
+	slog.Debug("reading go module file", "path", modPath, "bytes", len(modData))
 	// parse module line
 	name := filepath.Base(p)
 	lines := strings.Split(string(modData), "\n")
 	for _, l := range lines {
 		l = strings.TrimSpace(l)
 		if strings.HasPrefix(l, "module ") {
-			name = filepath.Base(strings.TrimSpace(strings.TrimPrefix(l, "module ")))
+			parsed := filepath.Base(strings.TrimSpace(strings.TrimPrefix(l, "module ")))
+			name = parsed
+			slog.Debug("parsed module name", "module", parsed)
 		}
 	}
 	proj := GoProject{RootPath: repoRoot, Path: p, Name: name}
+	slog.Debug("go project loaded", "module", name, "path", p)
 	return proj, nil, nil
 }
 
@@ -96,6 +107,7 @@ func (g GoGenerator) GenerateDockerfile(
 	if cfg.Base.Image != "" {
 		runtimeImage = cfg.Base.Image
 	}
+	slog.Debug("go image selection", "build", buildImage, "runtime", runtimeImage, "additionalFiles", len(additional))
 	ctx := goTemplateContext{
 		Project: proj, Config: cfg, BuildImage: buildImage, RuntimeImage: runtimeImage,
 		BuildPackages: cfg.BaseBuild.Packages, RuntimePackages: cfg.Base.Packages,
@@ -109,6 +121,7 @@ func (g GoGenerator) GenerateDockerfile(
 		return err
 	}
 	defer f.Close()
+	slog.Info("writing Dockerfile", "path", dest, "module", proj.Name)
 	return tmpl.Execute(f, ctx)
 }
 

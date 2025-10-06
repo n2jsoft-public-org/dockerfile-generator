@@ -49,6 +49,7 @@ Building Docker images often wastes time by copying the full source tree before 
 - 📦 Automatic inclusion of shared files: `nuget.config`, `Directory.Build.props`, `Directory.Packages.props`.
 - 🧾 YAML config (`.dockerbuild`) to override base/build images + `apk` package install lists.
 - 🧪 Dry-run mode with unified diff output.
+- 🐞 Optional verbose diagnostic logging (`--verbose`) showing detection & generation decisions (logs to stderr, leaving stdout clean).
 - 🪄 Cache-friendly layering for both ecosystems.
 - 🧱 Go builds use mount caches for modules & build output.
 
@@ -75,7 +76,7 @@ go build -o dockerfile-gen ./...
 ## 🧪 CLI Usage
 General form:
 ```
-dockerfile-gen --path <project-or-dir> [--language dotnet|go] [--dockerfile Dockerfile] [--dry-run]
+dockerfile-gen --path <project-or-dir> [--language dotnet|go] [--dockerfile Dockerfile] [--dry-run] [--verbose]
 ```
 Short flags: `-p`, `-l`, `-f`, `-d`. Version: `-v` / `-V`.
 Legacy (deprecated): single-dash long forms (`-path`, `-language`, ...).
@@ -88,6 +89,7 @@ Legacy (deprecated): single-dash long forms (`-path`, `-language`, ...).
 - `-f, --dockerfile` (optional): Output file name (default `Dockerfile`).
 - `-d, --dry-run` (optional): Generate to temp & print unified diff vs existing file (no write).
 - `-v, -V, --version` (optional): Print version metadata.
+- `--verbose` (optional): Enable debug logging (prints detection, config, and output path decisions to stderr; safe for piping stdout to files or other tools).
 
 ### Exit Codes
 - `0` ✅ success
@@ -115,6 +117,10 @@ dockerfile-gen -p ./service
 ### Go module with output name
 ```bash
 dockerfile-gen -p ./service -l go -f Dockerfile.service
+```
+### Verbose diagnostics (stderr logging)
+```bash
+dockerfile-gen -p ./service --verbose
 ```
 
 ### With a config file
@@ -229,6 +235,7 @@ Outputs:
 | Multiple `.csproj` in directory | Specify a single file path. |
 | Permissions / user mismatch | Provide `APP_UID` in build args or remove `USER $APP_UID` line after generation. |
 | Private NuGet feeds | Provide `NuGetPackageSourceToken_gh` build arg; adapt template if feed name differs. |
+| Need more insight into what the tool is doing | Re-run with `--verbose` to see detection & config decisions. |
 
 ---
 

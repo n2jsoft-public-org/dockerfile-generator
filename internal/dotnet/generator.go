@@ -3,6 +3,7 @@ package dotnet
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,18 +68,23 @@ func (d DotnetGenerator) Load(projectPath, repoRoot string) (
 			return nil, nil, fmt.Errorf("multiple .csproj found; specify one explicitly")
 		}
 		p = matches[0]
+		slog.Debug("resolved single project file in directory", "dir", projectPath, "file", p)
 	}
 	if !strings.HasSuffix(strings.ToLower(p), ".csproj") {
 		return nil, nil, errors.New("path must be a .csproj file for dotnet")
 	}
+	slog.Debug("loading dotnet project", "path", p, "repoRoot", repoRoot)
 	proj, err := LoadProject(p, repoRoot)
 	if err != nil {
 		return nil, nil, err
 	}
+	references := proj.GetAllProjectReferences()
+	slog.Debug("project graph loaded", "root", proj.Path, "projects", len(references))
 	additional, err := LoadProjectContextFromProject(proj, repoRoot)
 	if err != nil {
 		return nil, nil, err
 	}
+	slog.Debug("additional context files discovered", "count", len(additional))
 	return proj, additional, nil
 }
 
@@ -103,6 +109,7 @@ func (d DotnetGenerator) GenerateDockerfile(
 	} else {
 		baseSdkImage = cfg.BaseBuild.Image
 	}
+	slog.Debug("dotnet image selection", "runtime", baseImage, "sdk", baseSdkImage, "additionalFiles", len(additional))
 
 	// Choose template (could allow override later)
 	tmpl, err := template.New("dotnet-dockerfile").Parse(defaultTemplate)
@@ -114,6 +121,7 @@ func (d DotnetGenerator) GenerateDockerfile(
 		return err
 	}
 	defer f.Close()
+	slog.Info("writing Dockerfile", "path", dest, "project", proj.GetName())
 	return tmpl.Execute(f, TemplateContext{
 		AdditionalFilePaths: additional,
 		Project:             proj,
