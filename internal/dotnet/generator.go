@@ -94,11 +94,14 @@ func (d DotnetGenerator) GenerateDockerfile(
 
 	var baseImage, baseSdkImage string
 	if cfg.Base.Image == "" {
-		baseImage = "mcr.microsoft.com/dotnet/aspnet:${TARGET_DOTNET_VERSION}"
-		baseSdkImage = "mcr.microsoft.com/dotnet/sdk:${TARGET_DOTNET_VERSION}"
+		baseImage = "mcr.microsoft.com/dotnet/aspnet:${TARGET_DOTNET_VERSION}-alpine"
 	} else {
-		baseImage = "mcr.microsoft.com/dotnet/aspnet:${TARGET_DOTNET_VERSION}-" + cfg.BaseBuild.Image
-		baseSdkImage = "mcr.microsoft.com/dotnet/sdk:${TARGET_DOTNET_VERSION}-" + cfg.Base.Image
+		baseImage = cfg.Base.Image
+	}
+	if cfg.BaseBuild.Image == "" {
+		baseSdkImage = "mcr.microsoft.com/dotnet/sdk:${TARGET_DOTNET_VERSION}-alpine"
+	} else {
+		baseSdkImage = cfg.BaseBuild.Image
 	}
 
 	// Choose template (could allow override later)

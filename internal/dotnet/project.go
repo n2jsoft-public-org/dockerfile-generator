@@ -68,18 +68,18 @@ func (p Project) GetDirectoryRelativePath() string {
 func (p Project) GetAllProjectReferences() []Project {
 	var result []Project
 	seen := map[string]bool{}
-	result = append(result, p)
-	seen[p.Path] = true
-	for _, pr := range p.ProjectReferences {
-		if len(pr.ProjectReferences) > 0 {
-			for _, ref := range pr.GetAllProjectReferences() {
-				if !seen[ref.Path] {
-					result = append(result, ref)
-					seen[ref.Path] = true
-				}
-			}
+	var visit func(Project)
+	visit = func(cur Project) {
+		if seen[cur.Path] {
+			return
+		}
+		seen[cur.Path] = true
+		result = append(result, cur)
+		for _, child := range cur.ProjectReferences {
+			visit(child)
 		}
 	}
+	visit(p)
 	sort.Slice(result, func(i, j int) bool { return result[i].Path < result[j].Path })
 	return result
 }
