@@ -33,7 +33,7 @@ jobs:
         run: go build -o /tmp/sanity ./...
 
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: latest
@@ -67,27 +67,42 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push (multi-arch)
+      - name: Derive version variables
+        id: vars
         shell: bash
-        env:
-          REPO: ghcr.io/${{ github.repository }}
         run: |
           set -euo pipefail
-          echo "Ref name: $GITHUB_REF_NAME"
-          VERSION="${GITHUB_REF_NAME#v}"
-          MAJOR="${VERSION%%.*}"
-          REMAINDER="${VERSION#${MAJOR}.}"
-          MINOR="${REMAINDER%%.*}"
+          REF="${GITHUB_REF_NAME}"
+          VERSION="${REF#v}" # strip leading 'v'
           DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          TAG_ARGS=( -t "${REPO}:${GITHUB_REF_NAME}" -t "${REPO}:latest" -t "${REPO}:v${MAJOR}" )
-          if [[ "$MINOR" != "$VERSION" ]]; then TAG_ARGS+=( -t "${REPO}:v${MAJOR}.${MINOR}" ); fi
-          echo "Building tags: ${TAG_ARGS[*]}"
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            "${TAG_ARGS[@]}" \
-            --build-arg VERSION="${VERSION}" \
-            --build-arg COMMIT="${GITHUB_SHA}" \
-            --build-arg DATE="${DATE}" \
-            -f Dockerfile . \
-            --push
-          echo "Image build & push complete."
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "date=${DATE}" >> "$GITHUB_OUTPUT"
+          echo "Derived: ref=$REF version=$VERSION date=$DATE"
+
+      - name: Docker meta (tags & labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ steps.vars.outputs.ref }}
+            type=raw,value=latest
+            type=semver,pattern=v{{major}}
+            type=semver,pattern=v{{major}}.{{minor}}
+
+      - name: Build & Push (multi-arch)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ steps.vars.outputs.version }}
+            COMMIT=${{ github.sha }}
+            DATE=${{ steps.vars.outputs.date }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
