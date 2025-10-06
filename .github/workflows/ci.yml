@@ -153,7 +153,7 @@ jobs:
           cache: true
 
       - name: GoReleaser config check
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: latest
