@@ -1,20 +1,24 @@
+# syntax=docker/dockerfile:1
 ARG TARGET_DOTNET_VERSION=9.0
-FROM mcr.microsoft.com/dotnet/aspnet:${TARGET_DOTNET_VERSION}-alpine AS base
+FROM {{ .BaseImage }} AS base
 WORKDIR /app
 EXPOSE 8080
 ENV \
     DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
     LC_ALL=en_US.UTF-8 \
     LANG=en_US.UTF-8
-RUN apk add --no-cache \
-    icu-data-full \
-    icu-libs
+{{ if .Config.Base.Packages }}RUN apk add --no-cache \
+    {{ range $i, $p := .Config.Base.Packages }}{{if $i}} \
+    {{end}}{{ $p }}{{ end }}{{ end }}
 USER $APP_UID
 
-FROM mcr.microsoft.com/dotnet/sdk:${TARGET_DOTNET_VERSION}-alpine AS base_build
+FROM {{ .BaseSdkImage }} AS base_build
 ARG BUILD_CONFIGURATION=Release
 ARG NuGetPackageSourceToken_gh
 ENV NuGetPackageSourceCredentials_gh="Username=docker_n2jsoft;Password=${NuGetPackageSourceToken_gh}"
+{{ if .Config.BaseBuild.Packages }}RUN apk add --no-cache \
+    {{ range $i, $p := .Config.BaseBuild.Packages }}{{if $i}} \
+    {{end}}{{ $p }}{{ end }}{{ end }}
 WORKDIR /build
 
 FROM base_build AS build

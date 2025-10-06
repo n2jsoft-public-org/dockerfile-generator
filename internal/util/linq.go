@@ -1,4 +1,4 @@
-package main
+package util
 
 func Where[T any](arr []T, f func(T) bool) (result []T) {
 	for _, item := range arr {
@@ -6,13 +6,12 @@ func Where[T any](arr []T, f func(T) bool) (result []T) {
 			result = append(result, item)
 		}
 	}
-	return result
+	return
 }
 
 func SelectMany[T, U any](arr []T, f func(T) []U) (result []U) {
 	for _, item := range arr {
 		result = append(result, f(item)...)
 	}
-
-	return result
+	return
 }

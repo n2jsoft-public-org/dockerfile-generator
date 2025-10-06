@@ -49,7 +49,7 @@ dockers:
     use: buildx
     ids: # reference the Go build IDs to include in this docker build
       - dotnet-dockerfile-gen
-    dockerfile: Dockerfile.cli
+    dockerfile: Dockerfile
     image_templates:
       - ghcr.io/{{ .Env.GITHUB_REPOSITORY }}:{{ .Version }}
       - ghcr.io/{{ .Env.GITHUB_REPOSITORY }}:latest
