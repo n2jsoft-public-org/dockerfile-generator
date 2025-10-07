@@ -16,6 +16,7 @@ FROM {{ .BaseSdkImage }} AS build
 ARG BUILD_CONFIGURATION=Release
 ARG NuGetPackageSourceToken_gh
 ARG TARGET_DOTNET_VERSION
+ARG APP_VERSION=0.0.1
 ENV NuGetPackageSourceCredentials_gh="Username=dummy;Password=${NuGetPackageSourceToken_gh}"
 {{ if .Config.BaseBuild.Packages }}RUN apk add --no-cache \
     {{ range $i, $p := .Config.BaseBuild.Packages }}{{if $i}} \
@@ -31,6 +32,7 @@ COPY . .
 WORKDIR "/build/{{.Project.GetDirectoryRelativePath}}"
 RUN dotnet build --no-restore "./{{.Project.GetFileName}}" \
     -c $BUILD_CONFIGURATION \
+    -p:Version=$APP_VERSION \
     -f net${TARGET_DOTNET_VERSION} \
     -o /app/build
 
