@@ -66,7 +66,7 @@ func TestDotnetGenerator_ConfigOverrides(t *testing.T) {
 	}
 	data, _ := os.ReadFile(dest) // #nosec G304 - test reading generated file path
 	content := string(data)
-	if !contains(content, "FROM customruntime:1 AS base") || !contains(content, "FROM customsdk:1 AS base_build") {
+	if !contains(content, "FROM customruntime:1 AS base") || !contains(content, "FROM customsdk:1 AS build") {
 		t.Fatalf("expected override images present, got: %s", content)
 	}
 }
