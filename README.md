@@ -59,15 +59,15 @@ Building Docker images often wastes time by copying the full source tree before 
 ## 📥 Installation
 ### Option 1: Install via Go tooling (latest published version)
 ```bash
-go install github.com/n2jsoft-public-org/dotnet-dockerfile-generator@latest
+go install github.com/n2jsoft-public-org/dockerfile-generator@latest
 ```
-> Module path (per `go.mod`): `github.com/n2jsoft-public-org/dotnet-dockerfile-generator`
+> Module path (per `go.mod`): `github.com/n2jsoft-public-org/dockerfile-generator`
 
 ### Option 2: Clone + Makefile install (local build)
 By default `make install` places the binary in the first entry of your `GOPATH`, i.e. `$GOPATH/bin` (commonly `$HOME/go/bin`). Ensure that directory is on your PATH.
 ```bash
-git clone https://github.com/n2jsoft-public-org/dotnet-dockerfile-generator.git
-cd dotnet-dockerfile-generator
+git clone https://github.com/n2jsoft-public-org/dockerfile-generator.git
+cd dockerfile-generator
 make install                 # installs to $(go env GOPATH)/bin/dockerfile-gen
 ```
 Override destination prefix (installs into `<prefix>/bin`):
