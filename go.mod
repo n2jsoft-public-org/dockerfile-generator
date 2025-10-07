@@ -1,4 +1,4 @@
-module github.com/n2jsoft-public-org/dotnet-dockerfile-generator
+module github.com/n2jsoft-public-org/dockerfile-generator
 
 go 1.25
 

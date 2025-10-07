@@ -9,9 +9,9 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/common"
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/config"
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/generator"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/common"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/config"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/generator"
 )
 
 // TemplateContext is the data model used to render the dotnet Dockerfile template.

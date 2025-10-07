@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/config"
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/golang"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/config"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/golang"
 )
 
 func captureStdout(_ *testing.T, fn func()) string { // underscore for unused param (revive)

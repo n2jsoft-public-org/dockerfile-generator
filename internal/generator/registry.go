@@ -4,8 +4,8 @@ package generator
 import (
 	"fmt"
 
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/common"
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/config"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/common"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/config"
 )
 
 // ProjectData is any language-specific project representation passed to templates.

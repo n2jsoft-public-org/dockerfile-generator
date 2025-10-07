@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/config"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/config"
 )
 
 func writeFile(t *testing.T, path, content string) {
