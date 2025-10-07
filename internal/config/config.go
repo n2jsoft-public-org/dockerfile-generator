@@ -28,6 +28,7 @@ type Config struct {
 	Final     FinalConfig `yaml:"final"`
 }
 
+// FinalConfig represents configuration applied to the final runtime image.
 type FinalConfig struct {
 	Run []string `yaml:"run"`
 }

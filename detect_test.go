@@ -1,3 +1,4 @@
+// main is the package declaration for the entry point of the Go application.
 package main
 
 import (
