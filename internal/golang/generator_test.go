@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/config"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/config"
 )
 
 func TestGoGenerator_ConfigOverrides(t *testing.T) {

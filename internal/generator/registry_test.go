@@ -3,8 +3,8 @@ package generator
 import (
 	"testing"
 
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/common"
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/config"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/common"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/config"
 )
 
 type mockGen struct{ name string }

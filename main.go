@@ -9,11 +9,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/config"
-	_ "github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/dotnet" // register dotnet generator
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/generator"
-	_ "github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/golang" // register go generator
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/unidiff"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/config"
+	_ "github.com/n2jsoft-public-org/dockerfile-generator/internal/dotnet" // register dotnet generator
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/generator"
+	_ "github.com/n2jsoft-public-org/dockerfile-generator/internal/golang" // register go generator
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/unidiff"
 )
 
 var (

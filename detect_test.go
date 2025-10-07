@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/config"
-	_ "github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/dotnet"
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/generator"
-	_ "github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/golang"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/config"
+	_ "github.com/n2jsoft-public-org/dockerfile-generator/internal/dotnet"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/generator"
+	_ "github.com/n2jsoft-public-org/dockerfile-generator/internal/golang"
 )
 
 const sampleCsproj = `<?xml version="1.0" encoding="utf-8"?>

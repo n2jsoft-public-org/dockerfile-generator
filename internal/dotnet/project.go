@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/util"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/util"
 )
 
 // projectXML mirrors the root <Project> XML structure.

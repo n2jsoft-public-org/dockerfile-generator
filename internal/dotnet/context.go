@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/common"
+	"github.com/n2jsoft-public-org/dockerfile-generator/internal/common"
 )
 
 const (
