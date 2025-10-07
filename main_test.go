@@ -12,31 +12,6 @@ import (
 	"github.com/n2jsoft-public-org/dotnet-dockerfile-generator/internal/golang"
 )
 
-func TestTranslateLegacyLongFlags(t *testing.T) {
-	cases := []struct {
-		in   []string
-		out  []string
-		name string
-	}{
-		{[]string{"-path"}, []string{"--path"}, "simple"},
-		{[]string{"-language", "value"}, []string{"--language", "value"}, "with value next"},
-		{[]string{"-path=."}, []string{"--path=."}, "assignment"},
-		{[]string{"-dry-run", "-version"}, []string{"--dry-run", "--version"}, "multiple"},
-		{[]string{"-p"}, []string{"-p"}, "short flag unchanged"},
-	}
-	for _, c := range cases {
-		got := translateLegacyLongFlags(c.in)
-		if len(got) != len(c.out) {
-			t.Fatalf("%s: length mismatch exp %d got %d", c.name, len(c.out), len(got))
-		}
-		for i := range c.out {
-			if got[i] != c.out[i] {
-				t.Fatalf("%s: expected %v got %v", c.name, c.out, got)
-			}
-		}
-	}
-}
-
 func captureStdout(_ *testing.T, fn func()) string { // underscore for unused param (revive)
 	old := os.Stdout
 	r, w, _ := os.Pipe()
@@ -74,11 +49,35 @@ func TestRootCmd_VerboseVersionUpperFlag(t *testing.T) {
 	}
 }
 
-func TestRootCmd_MissingPath(t *testing.T) {
+// New behavior: default path is '.'; verify it works when a project exists.
+func TestRootCmd_DefaultPath(t *testing.T) {
+	dir := t.TempDir()
+	// simulate repo root & go module
+	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o750); err != nil {
+		t.Fatalf("mkdir git: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/app\n\ngo 1.23\n"),
+		0o600); err != nil {
+		t.Fatalf("write mod: %v", err)
+	}
+	cwd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(cwd) }()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{})
-	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "project path is required") {
-		t.Fatalf("expected missing path error, got %v", err)
+	// Explicitly provide language to ensure deterministic behavior
+	cmd.SetArgs([]string{"-l", "go"}) // rely on default path '.'
+	out := captureStdout(t, func() {
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+	})
+	if !strings.Contains(out, "Successfully generated") {
+		t.Fatalf("expected success output, got %q", out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "Dockerfile")); err != nil {
+		t.Fatalf("expected Dockerfile created: %v", err)
 	}
 }
 
@@ -244,7 +243,7 @@ func TestRootCmd_NoGitRootError(t *testing.T) {
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"-p", dir, "-l", "go"})
 	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "cannot find repository root") {
-		t.Fatalf("expected repo root error, got %v", err)
+		t.Fatalf("expected cannot find repository root error, got %v", err)
 	}
 }
 

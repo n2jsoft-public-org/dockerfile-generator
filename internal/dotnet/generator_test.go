@@ -83,3 +83,48 @@ func contains(s, sub string) bool {
 	}
 	return false
 }
+
+func TestDotnetGenerator_FinalRunCommands(t *testing.T) {
+	g := DotnetGenerator{}
+	dir := t.TempDir()
+	projPath := filepath.Join(dir, "App.csproj")
+	if err := os.WriteFile(projPath,
+		[]byte(`<?xml version="1.0"?><Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net9.0</TargetFramework></PropertyGroup></Project>`),
+		0o600); err != nil {
+		f := err
+		t.Fatalf("write: %v", f)
+	}
+	proj, additional, err := g.Load(projPath, dir)
+	if err != nil {
+		f := err
+		t.Fatalf("load: %v", f)
+	}
+	dest := filepath.Join(dir, "Dockerfile.finalrun")
+	cfg := config.Config{Final: config.FinalConfig{Run: []string{"adduser -D testuser", "echo done"}}}
+	if err := g.GenerateDockerfile(proj, additional, dest, cfg); err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	data, _ := os.ReadFile(dest) // #nosec G304 - test reading generated file path
+	content := string(data)
+	if !contains(content, "RUN adduser -D testuser") || !contains(content, "RUN echo done") {
+		t.Fatalf("expected final run commands in dockerfile, got: %s", content)
+	}
+	idxRun := index(content, "RUN adduser -D testuser")
+	idxEntrypoint := index(content, "ENTRYPOINT")
+	if idxRun == -1 || idxEntrypoint == -1 || idxRun > idxEntrypoint {
+		t.Fatalf("expected final run commands before ENTRYPOINT; indices run=%d entrypoint=%d", idxRun, idxEntrypoint)
+	}
+}
+
+// index returns the index of sub in s or -1 if absent (avoids importing strings)
+func index(s, sub string) int {
+	if len(sub) == 0 {
+		return 0
+	}
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return i
+		}
+	}
+	return -1
+}

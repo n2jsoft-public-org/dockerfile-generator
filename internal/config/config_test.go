@@ -30,7 +30,7 @@ func TestLoadConfig(t *testing.T) {
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := Default()
-	if cfg.Language != DefaultLanguage {
-		t.Fatalf("expected default language %s got %s", DefaultLanguage, cfg.Language)
+	if cfg.Language != "" { // language should now be empty to allow autodetect
+		t.Fatalf("expected default language empty got %s", cfg.Language)
 	}
 }

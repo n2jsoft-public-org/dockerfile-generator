@@ -30,7 +30,7 @@ COPY ["{{.GetRelativePath}}", "{{.GetRelativePath}}"]{{end}}
 RUN dotnet restore "./{{.Project.GetRelativePath}}"
 COPY . .
 WORKDIR "/build/{{.Project.GetDirectoryRelativePath}}"
-RUN dotnet build "./{{.Project.GetFileName}}" \
+RUN dotnet --no-restore build "./{{.Project.GetFileName}}" \
     -c $BUILD_CONFIGURATION \
     -f net${TARGET_DOTNET_VERSION} \
     -o /app/build
@@ -39,7 +39,7 @@ FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 ARG APP_VERSION=0.0.1
 ARG TARGET_DOTNET_VERSION
-RUN dotnet publish "./{{.Project.GetFileName}}" \
+RUN dotnet --no-restore publish "./{{.Project.GetFileName}}" \
     -c $BUILD_CONFIGURATION \
     -o /app/publish \
     -p:Version=$APP_VERSION \
@@ -50,4 +50,5 @@ FROM base AS final
 WORKDIR /app
 ARG TARGET_DOTNET_VERSION
 COPY --from=publish --chown=$APP_UID:$APP_UID /app/publish .
-ENTRYPOINT ["dotnet", "{{.Project.GetName}}.dll"]
+{{ if .Config.Final.Run }}{{ range .Config.Final.Run }}RUN {{ . }}
+{{ end }}{{ end }}ENTRYPOINT ["dotnet", "{{.Project.GetName}}.dll"]

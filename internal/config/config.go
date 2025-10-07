@@ -16,7 +16,7 @@ const (
 	LanguageDotnet = "dotnet"
 	// LanguageGo canonical language key for Go projects.
 	LanguageGo = "go"
-	// DefaultLanguage used when none provided.
+	// DefaultLanguage retained for backward compatibility (no longer auto-applied unless config file present).
 	DefaultLanguage = LanguageDotnet
 )
 
@@ -25,6 +25,12 @@ type Config struct {
 	Language  string      `yaml:"language"`
 	Base      ImageConfig `yaml:"base"`
 	BaseBuild ImageConfig `yaml:"base-build"`
+	Final     FinalConfig `yaml:"final"`
+}
+
+// FinalConfig represents configuration applied to the final runtime image.
+type FinalConfig struct {
+	Run []string `yaml:"run"`
 }
 
 // ImageConfig describes an image reference and optional extra packages layer.
@@ -49,9 +55,8 @@ func Load(path string) (Config, error) {
 	return cfg, nil
 }
 
-// Default returns a Config with default language set.
+// Default returns a Config with no language preset so autodetection can occur
+// if the user does not provide a config file or explicit flag.
 func Default() Config {
-	return Config{
-		Language: DefaultLanguage,
-	}
+	return Config{}
 }
