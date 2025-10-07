@@ -57,36 +57,61 @@ Building Docker images often wastes time by copying the full source tree before 
 ---
 
 ## 📥 Installation
-With Go installed (1.21+ recommended, built with 1.25 target):
-
+### Option 1: Install via Go tooling (latest published version)
 ```bash
-go install github.com/n2jsoft-public-org/dockerfile-generator@latest
+go install github.com/n2jsoft-public-org/dotnet-dockerfile-generator@latest
+```
+> Module path (per `go.mod`): `github.com/n2jsoft-public-org/dotnet-dockerfile-generator`
+
+### Option 2: Clone + Makefile install (local build)
+By default `make install` places the binary in the first entry of your `GOPATH`, i.e. `$GOPATH/bin` (commonly `$HOME/go/bin`). Ensure that directory is on your PATH.
+```bash
+git clone https://github.com/n2jsoft-public-org/dotnet-dockerfile-generator.git
+cd dotnet-dockerfile-generator
+make install                 # installs to $(go env GOPATH)/bin/dockerfile-gen
+```
+Override destination prefix (installs into `<prefix>/bin`):
+```bash
+make install PREFIX=$HOME/.local   # installs to $HOME/.local/bin/dockerfile-gen
+```
+Uninstall (matches the prefix you used to install):
+```bash
+make uninstall                     # removes $(go env GOPATH)/bin/dockerfile-gen
+make uninstall PREFIX=$HOME/.local # removes $HOME/.local/bin/dockerfile-gen
 ```
 
-Or build locally:
-```bash
-git clone <repo-url>
-cd dotnet-dockerfile-gen
-go build -o dockerfile-gen ./...
+### Windows notes
+- The produced binary name is `dockerfile-gen.exe`.
+- Default install path: `%GOPATH%\bin` (e.g. `C:\Users\<you>\go\bin`).
+- Make sure that path is added to your `Path` environment variable.
+- PowerShell example:
+```powershell
+$env:PATH += ";$HOME\go\bin"
 ```
 
-> Note: The module path is `github.com/n2jsoft-public-org/dockerfile-generator`. If your fork or repo name differs (e.g. `dotnet-dockerfile-gen`), adjust accordingly.
+### Option 3: Manual build
+```bash
+go build -o dockerfile-gen .
+install -m 0755 dockerfile-gen "$HOME/go/bin/dockerfile-gen"   # or another directory on PATH
+```
+(Use `dockerfile-gen.exe` on Windows and place it in `%GOPATH%\bin`.)
 
 ---
 
 ## 🧪 CLI Usage
 General form:
 ```
-dockerfile-gen --path <project-or-dir> [--language dotnet|go] [--dockerfile Dockerfile] [--dry-run] [--verbose]
+dockerfile-gen [--path <project-or-dir>] [--language dotnet|go] [--dockerfile Dockerfile] [--dry-run] [--verbose]
 ```
+If `--path` is omitted it defaults to the current directory (`.`).
 Short flags: `-p`, `-l`, `-f`, `-d`. Version: `-v` / `-V`.
 Legacy (deprecated): single-dash long forms (`-path`, `-language`, ...).
 
 ### Flags
-- `-p, --path` (string, required):
+- `-p, --path` (string, optional, default `.`):
   - .NET: path to a `.csproj` OR a directory containing exactly one `.csproj`.
   - Go: path to a `go.mod` OR its module root directory.
-- `-l, --language` (optional): Force generator (`dotnet`, `go`).
+- `-l, --language` (optional): Force generator (`dotnet`, `go`). If omitted, order: flag → config → autodetect.
 - `-f, --dockerfile` (optional): Output file name (default `Dockerfile`).
 - `-d, --dry-run` (optional): Generate to temp & print unified diff vs existing file (no write).
 - `-v, -V, --version` (optional): Print version metadata.
@@ -99,6 +124,10 @@ Legacy (deprecated): single-dash long forms (`-path`, `-language`, ...).
 ---
 
 ## 🧾 Examples
+### Default (current directory)
+```bash
+dockerfile-gen
+```
 ### .NET web project
 ```bash
 dockerfile-gen -p ./src/WebApi/WebApi.csproj
@@ -212,9 +241,11 @@ Per project (root + referenced):
 Order of precedence:
 1. `--language` flag (if provided)
 2. Config `language` in `.dockerbuild`
-3. Heuristics:
+3. Heuristics (on `--path` or `.` default directory):
    - Path to `.csproj` or directory with exactly one `.csproj` → `dotnet`
    - Directory/file containing `go.mod` → `go`
+
+If both are present, whichever generator was registered first and detects successfully "wins" (current order: dotnet then go).
 
 ---
 
@@ -241,7 +272,7 @@ Outputs:
 ---
 
 ## 🛠 Development
-A `Makefile` is provided to streamline local workflows (linting, testing, releasing, Docker build).
+A `Makefile` is provided to streamline local workflows (linting, testing, releasing, Docker build, installation).
 
 Common targets:
 
@@ -251,6 +282,8 @@ Common targets:
 | `make test` | Run tests with race detector + coverage profile. |
 | `make coverage` | Run tests (if needed) and enforce coverage threshold (`COVERAGE_MIN`, default 60%). |
 | `make build` | Build the CLI binary into `./bin/dockerfile-gen`. |
+| `make install` | Build (if needed) and install to `${PREFIX}/bin` (default first GOPATH entry, e.g. `~/go/bin`). |
+| `make uninstall` | Remove previously installed binary from `${PREFIX}/bin`. |
 | `make snapshot` | Run GoReleaser in snapshot mode (no publish). |
 | `make release` | Full GoReleaser release (requires tag + `GITHUB_TOKEN`). |
 | `make docker` | Build a local Docker image `dockerfile-gen:dev`. |
@@ -262,13 +295,16 @@ Environment overrides:
 - `GOLANGCI_LINT_VERSION` to pin a different golangci-lint version.
 - `COVERAGE_MIN` to raise/lower the required coverage percentage.
 - `VERSION` for custom build version (defaults to `dev`).
+- `PREFIX` install destination root (default first GOPATH entry).
 
 Example:
 ```bash
 make lint
-make test COVERAGE_MIN=70
-make build VERSION=$(git describe --tags --always)
+make install                         # installs into $(go env GOPATH)/bin
+make install PREFIX=$HOME/.local     # alt location
+make uninstall PREFIX=$HOME/.local   # remove if needed
 ```
+Ensure `$(go env GOPATH)/bin` or `PREFIX/bin` is on your PATH.
 
 > Tip: Run `make help` to list available targets.
 

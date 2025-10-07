@@ -79,7 +79,7 @@ func TestDotnetDetectAndGenerate(t *testing.T) {
 		t.Fatalf("read dockerfile: %v", err)
 	}
 	content := string(data)
-	if !strings.Contains(content, "dotnet publish") {
+	if !strings.Contains(content, "dotnet --no-restore publish") {
 		t.Fatalf("dockerfile missing dotnet publish step")
 	}
 }

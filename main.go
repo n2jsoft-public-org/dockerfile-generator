@@ -23,36 +23,6 @@ var (
 	logger  *slog.Logger
 )
 
-// translateLegacyLongFlags rewrites legacy single-dash long flags (-path) to the
-// canonical double-dash form (--path) for backward compatibility with the prior
-// implementation that accepted -path style long flags using the stdlib flag pkg.
-func translateLegacyLongFlags(args []string) []string {
-	legacy := map[string]struct{}{
-		"-path":       {},
-		"-language":   {},
-		"-dockerfile": {},
-		"-dry-run":    {},
-		"-version":    {},
-	}
-	out := make([]string, 0, len(args))
-	for _, a := range args {
-		if _, ok := legacy[a]; ok {
-			out = append(out, "-"+a) // prepend one more '-' -> '--path'
-			continue
-		}
-		// handle assignment forms like -path=VALUE
-		if eq := strings.IndexByte(a, '='); eq > 0 {
-			prefix := a[:eq]
-			if _, ok := legacy[prefix]; ok {
-				out = append(out, "-"+a)
-				continue
-			}
-		}
-		out = append(out, a)
-	}
-	return out
-}
-
 // newRootCmd builds the root cobra command (extracted for testability).
 //
 //go:noinline
@@ -88,9 +58,10 @@ func newRootCmd() *cobra.Command {
 			}
 
 			if projectPath == "" {
-				return fmt.Errorf("project path is required (use -p / --path)")
+				// Should not happen because default is set, but guard anyway.
+				projectPath = "."
 			}
-			Debugf("project path provided: %s", projectPath)
+			Debugf("project path provided/resolved: %s", projectPath)
 
 			if _, err := os.Stat(projectPath); os.IsNotExist(err) {
 				return fmt.Errorf("project path not found: %s", projectPath)
@@ -110,6 +81,7 @@ func newRootCmd() *cobra.Command {
 
 			cfgPath := filepath.Join(projectDirectory, config.DefaultDockerBuildFileName)
 			cfg := config.Default()
+			configLoaded := false
 			if data, err := os.Stat(cfgPath); err == nil && !data.IsDir() {
 				loaded, err2 := config.Load(cfgPath)
 				if err2 != nil {
@@ -117,14 +89,15 @@ func newRootCmd() *cobra.Command {
 					Warnf("failed to load config file %s: %v", cfgPath, err2)
 				} else {
 					cfg = loaded
+					configLoaded = true
 					Debugf("loaded config from %s", cfgPath)
 				}
 			} else {
 				Debugf("no config file found at %s (using defaults)", cfgPath)
 			}
 
-			// If language flag not set, use config
-			if language == "" && cfg.Language != "" {
+			// If language flag not set, use config only if a config file was loaded
+			if language == "" && configLoaded && cfg.Language != "" {
 				language = strings.ToLower(cfg.Language)
 				Debugf("language set from config: %s", language)
 			}
@@ -209,7 +182,8 @@ func newRootCmd() *cobra.Command {
 
 	// Flags
 	f := rootCmd.Flags()
-	f.StringVarP(&projectPath, "path", "p", "", "Path to the project (directory, .csproj, or go.mod) (required)")
+	f.StringVarP(&projectPath, "path", "p", ".",
+		"Path to the project (directory, .csproj, or go.mod). Defaults to current directory.")
 	f.StringVarP(&dockerfileName, "dockerfile", "f", "Dockerfile", "Name of the Dockerfile to generate")
 	f.StringVarP(&language, "language", "l", "",
 		"Language override (dotnet, go). If empty attempts autodetect or config")
@@ -220,21 +194,17 @@ func newRootCmd() *cobra.Command {
 	_ = f.MarkHidden("Version") // keep -V working but hide from help
 	f.BoolVarP(&verbose, "verbose", "", false, "Enable verbose (debug) logging to stderr")
 
-	rootCmd.Example = `  dockerfile-gen -p ./src/WebApi/WebApi.csproj
+	rootCmd.Example = `  dockerfile-gen            # use current directory
+  dockerfile-gen -p ./src/WebApi/WebApi.csproj
   dockerfile-gen -p ./service -l go -f Dockerfile.service
   dockerfile-gen -p ./src/WebApi -d
   dockerfile-gen -v
-  dockerfile-gen -p ./service --verbose`
+  dockerfile-gen --verbose`
 
 	return rootCmd
 }
 
 func main() {
-	// Backward compatibility: adjust os.Args so cobra can parse old single-dash long flags.
-	if len(os.Args) > 1 {
-		translated := translateLegacyLongFlags(os.Args[1:])
-		os.Args = append([]string{os.Args[0]}, translated...)
-	}
 	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		Errorf("command failed: %v", err)

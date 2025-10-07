@@ -5,6 +5,8 @@
 #   make test         Run tests with race detector and coverage
 #   make coverage     Show coverage summary
 #   make build        Build binary into ./bin/
+#   make install      Install built binary into GOPATH/bin by default (e.g. ~/go/bin)
+#   make uninstall    Remove previously installed binary from install dir
 #   make snapshot     GoReleaser snapshot build (no publish)
 #   make release      Full GoReleaser release (requires tag + GH token)
 #   make docker       Build local docker image (multi-stage, single arch)
@@ -21,6 +23,7 @@ DIST_DIR       := dist
 GOLANGCI_LINT_VERSION ?= 2.5.0
 GOLANGCI_LINT := $(BIN_DIR)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 GO             ?= go
+GOOS           := $(shell $(GO) env GOOS)
 PKGS           := $(shell $(GO) list ./...)
 VERSION        ?= dev
 COMMIT         := $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
@@ -29,8 +32,16 @@ LDFLAGS        := -s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X m
 COVER_PROFILE  := coverage.out
 COVER_MODE     := atomic
 COVERAGE_MIN   ?= 60
+# Determine default install prefix from first GOPATH entry (usually $HOME/go)
+GOPATH_FULL    := $(shell $(GO) env GOPATH)
+GOPATH_FIRST   := $(firstword $(subst :, ,$(GOPATH_FULL)))
+# Override with `make install PREFIX=/custom/path`
+PREFIX         ?= $(GOPATH_FIRST)
+INSTALL_BIN_DIR := $(PREFIX)/bin
+# Binary name (Windows gets .exe)
+BINARY_NAME    := $(PROJECT)$(if $(filter windows,$(GOOS)),.exe,)
 
-.PHONY: all help lint test coverage build snapshot release docker tidy ci clean deps
+.PHONY: all help lint test coverage build install uninstall snapshot release docker tidy ci clean deps
 
 all: build
 
@@ -66,9 +77,25 @@ coverage: test
 
 # Build binary
 build: tidy | $(BIN_DIR)
-	@echo "Building $(PROJECT)...";
-	@CGO_ENABLED=0 $(GO) build -trimpath -ldflags='$(LDFLAGS)' -o $(BIN_DIR)/$(PROJECT) .
-	@echo "Built $(BIN_DIR)/$(PROJECT)"
+	@echo "Building $(PROJECT) for $(GOOS)...";
+	@CGO_ENABLED=0 $(GO) build -trimpath -ldflags='$(LDFLAGS)' -o $(BIN_DIR)/$(BINARY_NAME) .
+	@echo "Built $(BIN_DIR)/$(BINARY_NAME)"
+
+# Install binary into GOPATH/bin (default) or PREFIX/bin
+install: build
+	@echo "Installing $(BINARY_NAME) to $(INSTALL_BIN_DIR)...";
+	@mkdir -p $(INSTALL_BIN_DIR)
+ifeq ($(GOOS),windows)
+	@cp $(BIN_DIR)/$(BINARY_NAME) $(INSTALL_BIN_DIR)/$(BINARY_NAME)
+else
+	@install -m 0755 $(BIN_DIR)/$(BINARY_NAME) $(INSTALL_BIN_DIR)/$(BINARY_NAME)
+endif
+	@echo "Installed $(INSTALL_BIN_DIR)/$(BINARY_NAME)"
+
+# Remove installed binary
+uninstall:
+	@echo "Uninstalling $(BINARY_NAME) from $(INSTALL_BIN_DIR)...";
+	@if [ -f "$(INSTALL_BIN_DIR)/$(BINARY_NAME)" ]; then rm -f "$(INSTALL_BIN_DIR)/$(BINARY_NAME)" && echo "Removed"; else echo "Not found"; fi
 
 # GoReleaser snapshot (no publish)
 snapshot: tidy

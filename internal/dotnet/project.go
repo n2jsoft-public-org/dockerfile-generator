@@ -82,7 +82,15 @@ func (p Project) GetAllProjectReferences() []Project {
 		}
 	}
 	visit(p)
-	sort.Slice(result, func(i, j int) bool { return result[i].Path < result[j].Path })
+	// Case-insensitive sort of paths with original-case tie breaker to ensure deterministic ordering
+	sort.Slice(result, func(i, j int) bool {
+		li := strings.ToLower(result[i].Path)
+		lj := strings.ToLower(result[j].Path)
+		if li == lj {
+			return result[i].Path < result[j].Path
+		}
+		return li < lj
+	})
 	return result
 }
 
