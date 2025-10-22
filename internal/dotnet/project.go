@@ -141,18 +141,10 @@ func innerLoadProject(path string, isMain bool, rootPath string, pathLoaded []st
 	projectReferences := util.SelectMany(util.Where(px.ItemGroups,
 		func(ig itemGroupXML) bool { return len(ig.ProjectReference) > 0 }),
 		func(ig itemGroupXML) []projectReferenceXML { return ig.ProjectReference })
-	var references []Project
-	for _, pr := range projectReferences {
-		childPath := strings.ReplaceAll(pr.Include, "\\", "/")
-		childPath = filepath.Join(filepath.Dir(path), childPath)
-		child, prjErr := innerLoadProject(childPath, false, rootPath, append(pathLoaded, path))
-		if prjErr != nil {
-			if errors.Is(prjErr, errMissingProject) {
-				continue
-			}
-			return Project{}, prjErr
-		}
-		references = append(references, child)
+	// resolve and load all child project references (supports wildcards)
+	references, refErr := loadProjectReferences(filepath.Dir(path), projectReferences, rootPath, append(pathLoaded, path))
+	if refErr != nil {
+		return Project{}, refErr
 	}
 	packageReferences := util.SelectMany(util.Where(px.ItemGroups,
 		func(ig itemGroupXML) bool { return len(ig.PackageReference) > 0 }),
@@ -171,4 +163,105 @@ func innerLoadProject(path string, isMain bool, rootPath string, pathLoaded []st
 // LoadProject loads a root .csproj and recursively its transitive project references.
 func LoadProject(path, rootPath string) (Project, error) {
 	return innerLoadProject(path, true, rootPath, []string{})
+}
+
+// loadProjectReferences resolves project reference includes (supports wildcards) and loads each child project.
+func loadProjectReferences(baseDir string, projectReferences []projectReferenceXML, rootPath string, pathLoaded []string) ([]Project, error) {
+	var references []Project
+	for _, pr := range projectReferences {
+		childPaths := resolveChildPaths(baseDir, pr.Include)
+		for _, cp := range childPaths {
+			child, prjErr := innerLoadProject(cp, false, rootPath, pathLoaded)
+			if prjErr != nil {
+				if errors.Is(prjErr, errMissingProject) {
+					continue
+				}
+				return nil, prjErr
+			}
+			references = append(references, child)
+		}
+	}
+	return references, nil
+}
+
+// resolveChildPaths turns a ProjectReference Include into concrete file paths.
+// It supports patterns like:
+// - "path/**/*.csproj" → recursively find all .csproj under "path"
+// - "path/*.csproj"    → find all .csproj directly under "path" (non-recursive)
+// - explicit file path  → single result
+func resolveChildPaths(baseDir, include string) []string {
+	inc := strings.ReplaceAll(include, "\\", "/")
+
+	// Handle recursive pattern ".../**/....csproj"
+	if strings.Contains(inc, "/**/") && strings.HasSuffix(strings.ToLower(inc), ".csproj") {
+		prefix := inc[:strings.Index(inc, "/**/")]
+		startDir := filepath.Join(baseDir, prefix)
+		return listCsprojRecursive(startDir)
+	}
+	// Handle explicit recursive suffix ".../**/.csproj" and ".../**/*.csproj"
+	if strings.HasSuffix(inc, "/**/*.csproj") {
+		prefix := strings.TrimSuffix(inc, "/**/*.csproj")
+		startDir := filepath.Join(baseDir, prefix)
+		return listCsprojRecursive(startDir)
+	}
+	// Handle non-recursive: ".../*.csproj" or just "*.csproj"
+	if strings.HasSuffix(inc, "/*.csproj") {
+		dirRel := strings.TrimSuffix(inc, "/*.csproj")
+		absDir := filepath.Join(baseDir, dirRel)
+		return listCsprojInDir(absDir)
+	}
+	if inc == "*.csproj" {
+		return listCsprojInDir(baseDir)
+	}
+
+	// Generic glob fallback for other wildcard usages (non-recursive)
+	if strings.ContainsAny(inc, "*?[]") {
+		pattern := filepath.Join(baseDir, inc)
+		matches, _ := filepath.Glob(pattern)
+		sort.Strings(matches)
+		return matches
+	}
+
+	// No wildcard: treat as direct file path
+	return []string{filepath.Join(baseDir, inc)}
+}
+
+// listCsprojRecursive walks dir recursively and returns all .csproj files.
+func listCsprojRecursive(dir string) []string {
+	var out []string
+	// If directory doesn't exist, nothing to do.
+	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+		return out
+	}
+	_ = filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info != nil && !info.IsDir() && strings.HasSuffix(strings.ToLower(info.Name()), ".csproj") {
+			out = append(out, p)
+		}
+		return nil
+	})
+	sort.Strings(out)
+	return out
+}
+
+// listCsprojInDir returns all .csproj directly within dir (non-recursive).
+func listCsprojInDir(dir string) []string {
+	var out []string
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return out
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if strings.HasSuffix(strings.ToLower(name), ".csproj") {
+			out = append(out, filepath.Join(dir, name))
+		}
+	}
+	sort.Strings(out)
+	return out
 }
