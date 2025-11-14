@@ -21,6 +21,7 @@ type TemplateContext struct {
 	Config              config.Config
 	BaseImage           string
 	BaseSdkImage        string
+	SdkVersion          string
 }
 
 // DotnetGenerator implements generator.Generator for .NET projects.
@@ -117,7 +118,12 @@ func (d DotnetGenerator) GenerateDockerfile(
 	} else {
 		baseSdkImage = cfg.BaseBuild.Image
 	}
-	slog.Debug("dotnet image selection", "runtime", baseImage, "sdk", baseSdkImage, "additionalFiles", len(additional))
+
+	sdkVersion := "9.0"
+	if cfg.Dotnet.SdkVersion != "" {
+		sdkVersion = cfg.Dotnet.SdkVersion
+	}
+	slog.Debug("dotnet image selection", "runtime", baseImage, "sdk", baseSdkImage, "sdkVersion", sdkVersion, "additionalFiles", len(additional))
 
 	tmpl, err := template.New("dotnet-dockerfile").Parse(defaultTemplate)
 	if err != nil {
@@ -134,6 +140,7 @@ func (d DotnetGenerator) GenerateDockerfile(
 		Config:              cfg,
 		BaseImage:           baseImage,
 		BaseSdkImage:        baseSdkImage,
+		SdkVersion:          sdkVersion,
 	})
 	closeErr := f.Close()
 	if execErr != nil {

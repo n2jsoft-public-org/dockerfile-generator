@@ -12,6 +12,7 @@
 ---
 
 ## 📚 Table of Contents
+
 - [Why?](#-why)
 - [Features](#-key-features)
 - [Installation](#-installation)
@@ -157,6 +158,8 @@ dockerfile-gen -p ./service --verbose
 Place `.dockerbuild` next to your `.csproj` or `go.mod`:
 ```yaml
 language: dotnet
+dotnet:
+  sdk-version: "8.0"
 base:
   image: mcr.microsoft.com/dotnet/aspnet:9.0-alpine
   packages:
@@ -175,14 +178,16 @@ dockerfile-gen -p ./src/WebApi/WebApi.csproj
 
 ## ⚙️ Config File Reference (`.dockerbuild`)
 ```yaml
-language: dotnet|go   # optional
+language: dotnet|go         # optional
+dotnet:                     # dotnet-specific config (optional)
+  sdk-version: "9.0"        # target .NET version (default: "9.0")
 base:
-  image: <string>     # runtime stage base image
-  packages:           # apk packages (alpine-based images)
+  image: <string>           # runtime stage base image
+  packages:                 # apk packages (alpine-based images)
     - pkg1
     - pkg2
 base-build:
-  image: <string>     # build stage base image
+  image: <string>           # build stage base image
   packages:
     - build-pkg
 ```
@@ -212,10 +217,12 @@ Stages (simplified):
 5. `final` – runtime image with published output
 
 Supported build args:
-- `TARGET_DOTNET_VERSION` (default `9.0`)
+- `TARGET_DOTNET_VERSION` (default from config `dotnet.sdk-version` or `9.0` if not specified)
 - `BUILD_CONFIGURATION` (default `Release`)
 - `APP_VERSION` (default `0.0.1`)
 - `NuGetPackageSourceToken_gh` (optional for private feed token injection)
+
+To customize the target .NET version, set `dotnet.sdk-version` in your `.dockerbuild` file.
 
 ---
 
