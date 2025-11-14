@@ -1,5 +1,6 @@
+# Generated from dockerfile-generator tool. Do not edit manually.
 # syntax=docker/dockerfile:1
-ARG TARGET_DOTNET_VERSION=9.0
+ARG TARGET_DOTNET_VERSION={{ .SdkVersion }}
 FROM {{ .BaseImage }} AS base
 WORKDIR /app
 EXPOSE 8080

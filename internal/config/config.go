@@ -22,10 +22,16 @@ const (
 
 // Config represents the top-level configuration.
 type Config struct {
-	Language  string      `yaml:"language"`
-	Base      ImageConfig `yaml:"base"`
-	BaseBuild ImageConfig `yaml:"base-build"`
-	Final     FinalConfig `yaml:"final"`
+	Language  string       `yaml:"language"`
+	Dotnet    DotnetConfig `yaml:"dotnet"`
+	Base      ImageConfig  `yaml:"base"`
+	BaseBuild ImageConfig  `yaml:"base-build"`
+	Final     FinalConfig  `yaml:"final"`
+}
+
+// DotnetConfig represents .NET-specific configuration.
+type DotnetConfig struct {
+	SdkVersion string `yaml:"sdk-version"`
 }
 
 // FinalConfig represents configuration applied to the final runtime image.

@@ -39,8 +39,10 @@ func TestDotnetGenerator_GenerateDefaultImages(t *testing.T) {
 	data, _ := os.ReadFile(dest) // #nosec G304 - test reading generated file path
 	content := string(data)
 	if !contains(content, "mcr.microsoft.com/dotnet/aspnet:${TARGET_DOTNET_VERSION}") {
-		// don't assert SDK image since code may evolve
 		t.Fatalf("expected default aspnet base image in output")
+	}
+	if !contains(content, "ARG TARGET_DOTNET_VERSION=9.0") {
+		t.Fatalf("expected default TARGET_DOTNET_VERSION=9.0 in dockerfile, got: %s", content)
 	}
 }
 
@@ -127,4 +129,31 @@ func index(s, sub string) int {
 		}
 	}
 	return -1
+}
+
+func TestDotnetGenerator_CustomSdkVersion(t *testing.T) {
+	g := DotnetGenerator{}
+	dir := t.TempDir()
+	projPath := filepath.Join(dir, "App.csproj")
+	if err := os.WriteFile(projPath,
+		[]byte(`<?xml version="1.0"?><Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>`),
+		0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	proj, additional, err := g.Load(projPath, dir)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	dest := filepath.Join(dir, "Dockerfile.sdkversion")
+	cfg := config.Config{
+		Dotnet: config.DotnetConfig{SdkVersion: "8.0"},
+	}
+	if err := g.GenerateDockerfile(proj, additional, dest, cfg); err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	data, _ := os.ReadFile(dest) // #nosec G304 - test reading generated file path
+	content := string(data)
+	if !contains(content, "ARG TARGET_DOTNET_VERSION=8.0") {
+		t.Fatalf("expected TARGET_DOTNET_VERSION=8.0 in dockerfile, got: %s", content)
+	}
 }
