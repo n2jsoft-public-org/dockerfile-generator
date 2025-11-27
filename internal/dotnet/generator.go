@@ -16,12 +16,13 @@ import (
 
 // TemplateContext is the data model used to render the dotnet Dockerfile template.
 type TemplateContext struct {
-	AdditionalFilePaths []common.AdditionalFilePath
-	Project             Project
-	Config              config.Config
-	BaseImage           string
-	BaseSdkImage        string
-	SdkVersion          string
+	AdditionalFilePaths   []common.AdditionalFilePath
+	Project               Project
+	Config                config.Config
+	BaseImage             string
+	BaseSdkImage          string
+	SdkVersion            string
+	ApplicationEntrypoint string
 }
 
 // DotnetGenerator implements generator.Generator for .NET projects.
@@ -123,7 +124,11 @@ func (d DotnetGenerator) GenerateDockerfile(
 	if cfg.Dotnet.SdkVersion != "" {
 		sdkVersion = cfg.Dotnet.SdkVersion
 	}
-	slog.Debug("dotnet image selection", "runtime", baseImage, "sdk", baseSdkImage, "sdkVersion", sdkVersion, "additionalFiles", len(additional))
+	applicationEntrypoint := proj.GetName() + ".dll"
+	if cfg.Dotnet.ApplicationEntrypoint != "" {
+		applicationEntrypoint = cfg.Dotnet.ApplicationEntrypoint
+	}
+	slog.Debug("dotnet image selection", "runtime", baseImage, "sdk", baseSdkImage, "sdkVersion", sdkVersion, "applicationEntrypoint", applicationEntrypoint, "additionalFiles", len(additional))
 
 	tmpl, err := template.New("dotnet-dockerfile").Parse(defaultTemplate)
 	if err != nil {
@@ -135,12 +140,13 @@ func (d DotnetGenerator) GenerateDockerfile(
 	}
 	// Execute then close explicitly to surface close errors (errcheck compliance).
 	execErr := tmpl.Execute(f, TemplateContext{
-		AdditionalFilePaths: additional,
-		Project:             proj,
-		Config:              cfg,
-		BaseImage:           baseImage,
-		BaseSdkImage:        baseSdkImage,
-		SdkVersion:          sdkVersion,
+		AdditionalFilePaths:   additional,
+		Project:               proj,
+		Config:                cfg,
+		BaseImage:             baseImage,
+		BaseSdkImage:          baseSdkImage,
+		SdkVersion:            sdkVersion,
+		ApplicationEntrypoint: applicationEntrypoint,
 	})
 	closeErr := f.Close()
 	if execErr != nil {
