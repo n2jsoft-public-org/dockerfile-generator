@@ -116,6 +116,9 @@ func TestDotnetGenerator_FinalRunCommands(t *testing.T) {
 	if idxRun == -1 || idxEntrypoint == -1 || idxRun > idxEntrypoint {
 		t.Fatalf("expected final run commands before ENTRYPOINT; indices run=%d entrypoint=%d", idxRun, idxEntrypoint)
 	}
+	if !contains(content, `["dotnet", "App.dll"]`) {
+		t.Fatalf("expected [\"dotnet\", \"App.dll\"], got: %s", content)
+	}
 }
 
 // index returns the index of sub in s or -1 if absent (avoids importing strings)
@@ -155,5 +158,32 @@ func TestDotnetGenerator_CustomSdkVersion(t *testing.T) {
 	content := string(data)
 	if !contains(content, "ARG TARGET_DOTNET_VERSION=8.0") {
 		t.Fatalf("expected TARGET_DOTNET_VERSION=8.0 in dockerfile, got: %s", content)
+	}
+}
+
+func TestDotnetGenerator_CustomApplicationEntrypoint(t *testing.T) {
+	g := DotnetGenerator{}
+	dir := t.TempDir()
+	projPath := filepath.Join(dir, "App.csproj")
+	if err := os.WriteFile(projPath,
+		[]byte(`<?xml version="1.0"?><Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>`),
+		0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	proj, additional, err := g.Load(projPath, dir)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	dest := filepath.Join(dir, "Dockerfile.sdkversion")
+	cfg := config.Config{
+		Dotnet: config.DotnetConfig{ApplicationEntrypoint: "customentrypoint.dll"},
+	}
+	if err := g.GenerateDockerfile(proj, additional, dest, cfg); err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	data, _ := os.ReadFile(dest) // #nosec G304 - test reading generated file path
+	content := string(data)
+	if !contains(content, `["dotnet", "customentrypoint.dll"]`) {
+		t.Fatalf("expected [\"dotnet\", \"customentrypoint.dll\"], got: %s", content)
 	}
 }
