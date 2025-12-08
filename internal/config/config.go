@@ -31,7 +31,8 @@ type Config struct {
 
 // DotnetConfig represents .NET-specific configuration.
 type DotnetConfig struct {
-	SdkVersion string `yaml:"sdk-version"`
+	SdkVersion            string `yaml:"sdk-version"`
+	ApplicationEntrypoint string `yaml:"application-entrypoint"`
 }
 
 // FinalConfig represents configuration applied to the final runtime image.

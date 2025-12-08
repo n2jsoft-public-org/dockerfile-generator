@@ -53,4 +53,4 @@ WORKDIR /app
 ARG TARGET_DOTNET_VERSION
 COPY --from=publish --chown=$APP_UID:$APP_UID /app/publish .
 {{ if .Config.Final.Run }}{{ range .Config.Final.Run }}RUN {{ . }}
-{{ end }}{{ end }}ENTRYPOINT ["dotnet", "{{.Project.GetName}}.dll"]
+{{ end }}{{ end }}ENTRYPOINT ["dotnet", "{{.ApplicationEntrypoint}}"]
