@@ -67,7 +67,7 @@ CMD ["--version"]
 # (Optional) Alpine runtime stage if you need a shell or CA certs
 ############################
 # To use, build with: --target alpine-runtime
-FROM alpine:3.22 AS alpine-runtime
+FROM alpine:3.23 AS alpine-runtime
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=dev
