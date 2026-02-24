@@ -33,7 +33,7 @@ jobs:
         run: go build -o /tmp/sanity ./...
 
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
           version: latest
